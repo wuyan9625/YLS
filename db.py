@@ -6,39 +6,16 @@ def create_connection():
     conn = sqlite3.connect("checkin.db")
     return conn
 
-# 初始化資料庫及資料表
-def init_db():
+# 檢查 line_id 是否已經綁定
+def is_line_id_bound(line_id):
     conn = create_connection()
     cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            line_id TEXT NOT NULL,
-            employee_id TEXT NOT NULL,
-            name TEXT
-        )
-    """)
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS checkin (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            employee_id TEXT NOT NULL,
-            check_type TEXT NOT NULL,
-            timestamp TEXT NOT NULL,
-            result TEXT
-        )
-    """)
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS user_states (
-            line_id TEXT PRIMARY KEY,
-            state TEXT,
-            temp_employee_id TEXT,
-            last_updated TEXT
-        )
-    """)
-    conn.commit()
+    cursor.execute("SELECT * FROM users WHERE line_id = ?", (line_id,))
+    row = cursor.fetchone()
     conn.close()
+    return row is not None  # 如果找到了該 line_id，則返回 True，表示已經綁定
 
-# 查找是否已有用戶綁定
+# 根據 line_id 查詢用戶
 def get_employee_by_line_id(line_id):
     conn = create_connection()
     cursor = conn.cursor()
