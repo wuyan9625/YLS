@@ -5,13 +5,33 @@ from datetime import datetime
 def init_db():
     conn = sqlite3.connect('checkin.db')
     cursor = conn.cursor()
-    # 如果資料表不存在，則創建 user_states 表
+    # 創建 users 表格
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS users (
+        line_id TEXT PRIMARY KEY,
+        employee_id TEXT UNIQUE,
+        name TEXT,
+        bind_time TEXT
+    )
+    ''')
+    # 創建 user_states 表格
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS user_states (
         line_id TEXT PRIMARY KEY,
         state TEXT,
         temp_employee_id TEXT,
         last_updated TEXT
+    )
+    ''')
+    # 創建 checkins 表格
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS checkins (
+        employee_id TEXT,
+        line_id TEXT,
+        name TEXT,
+        check_type TEXT,
+        timestamp TEXT,
+        result TEXT
     )
     ''')
     conn.commit()
@@ -51,7 +71,7 @@ def clear_user_state(line_id):
 def is_employee_id_taken(emp_id):
     conn = sqlite3.connect('checkin.db')
     cursor = conn.cursor()
-    cursor.execute('SELECT line_id FROM user_states WHERE temp_employee_id = ?', (emp_id,))
+    cursor.execute('SELECT line_id FROM users WHERE employee_id = ?', (emp_id,))
     row = cursor.fetchone()
     conn.close()
     return row is not None
@@ -60,7 +80,8 @@ def is_employee_id_taken(emp_id):
 def bind_user(line_id, emp_id, name):
     conn = sqlite3.connect('checkin.db')
     cursor = conn.cursor()
-    cursor.execute('INSERT OR REPLACE INTO user_states (line_id, temp_employee_id, state) VALUES (?, ?, ?)', (line_id, emp_id, "WAIT_NAME"))
+    cursor.execute('INSERT OR REPLACE INTO users (line_id, employee_id, name, bind_time) VALUES (?, ?, ?, ?)', 
+                   (line_id, emp_id, name, datetime.now().isoformat()))
     conn.commit()
     conn.close()
     return True
@@ -78,16 +99,6 @@ def has_checked_in_today(employee_id, check_type):
 def save_checkin(checkin_data):
     conn = sqlite3.connect('checkin.db')
     cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS checkins (
-            employee_id TEXT,
-            line_id TEXT,
-            name TEXT,
-            check_type TEXT,
-            timestamp TEXT,
-            result TEXT
-        )
-    ''')
     cursor.execute('''
         INSERT INTO checkins (employee_id, line_id, name, check_type, timestamp, result)
         VALUES (?, ?, ?, ?, ?, ?)
