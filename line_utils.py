@@ -92,12 +92,12 @@ def process_event(event, channel_token):
             # 顯示上班或下班時間
             if check_type == "上班":
                 if has_checked_in_today(employee[0], "上班"):
-                    reply_message(reply_token, 
-                        "❌ 您今天已經上班過了，無法再次上班！ / ❌ Bạn đã chấm công rồi. Không thể chấm công nhiều lần.", channel_token)  # 中文 + 越南文
+                    reply_message(reply_token, "❌ 您今天已經上班過了，無法再次上班！", channel_token)  # 中文
+                    reply_message(reply_token, "❌ Bạn đã chấm công rồi. Không thể chấm công nhiều lần.", channel_token)  # 越南文
                     return
                 if has_checked_in_today(employee[0], "下班"):
-                    reply_message(reply_token, 
-                        "❌ 您今天已經下班，無法再上班！ / ❌ Bạn đã tan ca, không thể chấm công lên lại.", channel_token)  # 中文 + 越南文
+                    reply_message(reply_token, "❌ 您今天已經下班，無法再上班！", channel_token)  # 中文
+                    reply_message(reply_token, "❌ Bạn đã tan ca, không thể chấm công lên lại.", channel_token)  # 越南文
                     return
                 save_checkin({
                     "employee_id": employee[0],
@@ -107,14 +107,13 @@ def process_event(event, channel_token):
                     "timestamp": formatted_time,
                     "result": "成功"
                 })
-                reply_message(reply_token, 
-                    f"✅ 上班打卡成功！\n上班時間：{formatted_time} / ✅ Đăng ký thành công\nGiờ chấm công vào: {formatted_time}",
-                    channel_token)  # 中文 + 越南文
+                reply_message(reply_token, f"✅ 上班打卡成功！\n上班時間：{formatted_time}", channel_token)  # 中文
+                reply_message(reply_token, f"✅ Đăng ký thành công\nGiờ chấm công vào: {formatted_time}", channel_token)  # 越南文
 
             if check_type == "下班":
                 if not has_checked_in_today(employee[0], "上班"):
-                    reply_message(reply_token, 
-                        "❌ 您未上班，無法下班！ / ❌ Bạn chưa chấm công lên, không thể chấm công xuống.", channel_token)  # 中文 + 越南文
+                    reply_message(reply_token, "❌ 您未上班，無法下班！", channel_token)  # 中文
+                    reply_message(reply_token, "❌ Bạn chưa chấm công lên, không thể chấm công xuống.", channel_token)  # 越南文
                     return
                 save_checkin({
                     "employee_id": employee[0],
@@ -124,9 +123,8 @@ def process_event(event, channel_token):
                     "timestamp": formatted_time,
                     "result": "成功"
                 })
-                reply_message(reply_token, 
-                    f"✅ 下班打卡成功！\n下班時間：{formatted_time} / ✅ Đã chấm công thành công\nGiờ chấm công ra: {formatted_time}",
-                    channel_token)  # 中文 + 越南文
+                reply_message(reply_token, f"✅ 下班打卡成功！\n下班時間：{formatted_time}", channel_token)  # 中文
+                reply_message(reply_token, f"✅ Đã chấm công thành công\nGiờ chấm công ra: {formatted_time}", channel_token)  # 越南文
 
 # --- 暫存綁定狀態 ---
 def get_user_state(line_id):
