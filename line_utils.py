@@ -53,7 +53,7 @@ def reply_button_template(reply_token, token):
                 "contents": [
                   {
                     "type": "text",
-                    "text": "打卡系統",
+                    "text": "打卡系統 / Hệ thống chấm công",
                     "align": "center",
                     "contents": []
                   }
@@ -72,7 +72,7 @@ def reply_button_template(reply_token, token):
                 "contents": [
                   {
                     "type": "text",
-                    "text": "選擇menu",
+                    "text": "選擇menu / Chọn menu",
                     "align": "center",
                     "contents": []
                   }
@@ -86,24 +86,24 @@ def reply_button_template(reply_token, token):
                     "type": "button",
                     "action": {
                       "type": "message",
-                      "label": "綁定Gắn mã",
-                      "text": "綁定"
+                      "label": "綁定 / Gắn mã",
+                      "text": "綁定 / Gắn mã"
                     }
                   },
                   {
                     "type": "button",
                     "action": {
                       "type": "message",
-                      "label": "上班Đi làm",
-                      "text": "上班"
+                      "label": "上班 / Đi làm",
+                      "text": "上班 / Đi làm"
                     }
                   },
                   {
                     "type": "button",
                     "action": {
                       "type": "message",
-                      "label": "下班Tan ca",
-                      "text": "下班"
+                      "label": "下班 / Tan ca",
+                      "text": "下班 / Tan ca"
                     }
                   }
                 ]
@@ -135,17 +135,20 @@ def process_event(event, channel_token):
     # 加入好友後自動發送歡迎文字與按鈕
     if event_type == "follow":
         welcome_text = (
-            "👋 歡迎加入打卡系統！\n\n"
-            "📋 請依照下列指引開始：\n"
-            "🔹 輸入「綁定」開始工號註冊\n"
-            "🔹 輸入「上班」或「下班」進行打卡\n"
-            "\n📱 安裝定位 App（Android/iOS）：\n"
-            "https://owntracks.org/booklet/guide/installation/\n"
-            "（開啟定位、自動上傳）\n\n"
-            "👋 Chào mừng bạn đến hệ thống chấm công!\n"
-            "🔹 Gõ “gắn mã” để bắt đầu đăng ký\n"
+            "👋 Chào mừng bạn đến với hệ thống chấm công!\n\n"
+            "📋 Vui lòng làm theo hướng dẫn dưới đây:\n"
+            "🔹 Gõ “gắn mã” để bắt đầu đăng ký mã nhân viên\n"
             "🔹 Gõ “上班” hoặc “下班” để chấm công\n"
-            "📍 Vui lòng cài App định vị và bật nền"
+            "\n📱 Cài đặt ứng dụng định vị (Android/iOS):\n"
+            "https://owntracks.org/booklet/guide/installation/\n"
+            "(Mở vị trí và tự động tải lên)\n\n"
+            "👋 Welcome to the clock-in system!\n"
+            "📋 Please follow the instructions below:\n"
+            "🔹 Enter “gắn mã” to start registering your employee ID\n"
+            "🔹 Enter “上班” or “下班” to clock in or clock out\n"
+            "\n📱 Install the location tracking app (Android/iOS):\n"
+            "https://owntracks.org/booklet/guide/installation/\n"
+            "(Enable location and auto-upload)"
         )
         reply_message(reply_token, welcome_text, channel_token)
         reply_button_template(reply_token, channel_token)  # 顯示按鈕選單
@@ -159,7 +162,7 @@ def process_event(event, channel_token):
 
         if text in ["綁定", "我要綁定", "gắn mã", "gắn", "bind"]:
             update_user_state(line_id, "WAIT_EMP_ID")
-            reply_message(reply_token, "📋 請輸入您的工號（mã nhân viên）", channel_token)
+            reply_message(reply_token, "📋 Vui lòng nhập mã nhân viên của bạn（mã nhân viên）", channel_token)
             return
 
         # 處理綁定狀態
@@ -169,21 +172,21 @@ def process_event(event, channel_token):
             if state == "WAIT_EMP_ID":
                 emp_id = text
                 if is_employee_id_taken(emp_id):
-                    reply_message(reply_token, "❌ 此工號已被綁定！\n❌ Mã nhân viên đã được sử dụng!", channel_token)
+                    reply_message(reply_token, "❌ Mã nhân viên này đã được sử dụng!\n❌ This employee ID has already been bound!", channel_token)
                     return
                 update_user_state(line_id, "WAIT_NAME", temp_emp_id=emp_id)
-                reply_message(reply_token, "📋 請輸入您的姓名（tên）", channel_token)
+                reply_message(reply_token, "📋 Vui lòng nhập tên của bạn（tên）", channel_token)
                 return
             elif state == "WAIT_NAME":
                 emp_id = state_info["temp_emp_id"]
                 name = text
                 if bind_user(line_id, emp_id, name):
                     reply_message(reply_token,
-                        f"✅ 綁定成功！工號：{emp_id}，姓名：{name}\n"
-                        f"✅ Đã gắn mã nhân viên: {emp_id}, tên: {name}",
+                        f"✅ Gắn mã thành công! Mã nhân viên: {emp_id}, Tên: {name}\n"
+                        f"✅ Employee ID {emp_id} bound successfully! Name: {name}",
                         channel_token)
                 else:
-                    reply_message(reply_token, "❌ 綁定失敗，請重試\n❌ Không thể gắn mã", channel_token)
+                    reply_message(reply_token, "❌ Gắn mã thất bại, vui lòng thử lại\n❌ Binding failed, please try again", channel_token)
                 clear_user_state(line_id)
                 return
 
@@ -191,7 +194,7 @@ def process_event(event, channel_token):
             # 檢查是否已打過上班卡
             employee = get_employee_by_line_id(line_id)
             if not employee:
-                reply_message(reply_token, "❌ 請先綁定工號再打卡\n❌ Vui lòng gắn mã trước khi chấm công", channel_token)
+                reply_message(reply_token, "❌ Vui lòng gắn mã trước khi chấm công\n❌ Please bind your employee ID before clocking in.", channel_token)
                 return
 
             check_type = "上班" if text == "上班" else "下班"
@@ -200,10 +203,10 @@ def process_event(event, channel_token):
             # 檢查是否已經打過上班卡
             if check_type == "上班":
                 if has_checked_in_today(employee[0], "上班"):
-                    reply_message(reply_token, "❌ 您今天已經上班過了，無法再次上班！\n ❌ Không chấm công nhiều lần", channel_token)
+                    reply_message(reply_token, "❌ Bạn đã chấm công rồi. Không thể chấm công nhiều lần.\n❌ You have already clocked in. You cannot clock in again.", channel_token)
                     return
                 if has_checked_in_today(employee[0], "下班"):
-                    reply_message(reply_token, "❌ 您今天已經下班，無法再上班！", channel_token)
+                    reply_message(reply_token, "❌ Bạn đã tan ca, không thể chấm công lên lại.\n❌ You have already clocked out, you cannot clock in again.", channel_token)
                     return
                 # 記錄上班時間
                 save_checkin({
@@ -212,14 +215,14 @@ def process_event(event, channel_token):
                     "name": employee[1],
                     "check_type": "上班",
                     "timestamp": now.strftime("%Y-%m-%d %H:%M:%S"),
-                    "result": "成功"
+                    "result": "成功 / Thành công"
                 })
-                reply_message(reply_token, f"✅ 上班打卡成功！\n ✅Đăng ký thành công", channel_token)
+                reply_message(reply_token, f"✅ 上班打卡成功！\n ✅ Đăng ký thành công", channel_token)
 
             # 檢查是否已經打過下班卡
             if check_type == "下班":
                 if not has_checked_in_today(employee[0], "上班"):
-                    reply_message(reply_token, "❌ 您未上班，無法下班！\n ❌ Không có hồ sơ chấm công làm việc", channel_token)
+                    reply_message(reply_token, "❌ Bạn chưa chấm công lên, không thể chấm công xuống.\n❌ You have not clocked in yet, cannot clock out.", channel_token)
                     return
                 save_checkin({
                     "employee_id": employee[0],
@@ -227,7 +230,7 @@ def process_event(event, channel_token):
                     "name": employee[1],
                     "check_type": "下班",
                     "timestamp": now.strftime("%Y-%m-%d %H:%M:%S"),
-                    "result": "成功"
+                    "result": "成功 / Thành công"
                 })
                 reply_message(reply_token, f"✅ 下班打卡成功！\n ✅ Đã chấm công thành công", channel_token)
 
