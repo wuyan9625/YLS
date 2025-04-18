@@ -14,7 +14,14 @@ COMPANY_LAT = 24.4804401433383
 COMPANY_LNG = 120.7956030766374
 ALLOWED_RADIUS_M = 50
 
-def handle_event(event, channel_secret, channel_token):
+# ✅ 處理整包 webhook events 陣列
+def handle_event(body, signature, channel_secret, channel_token):
+    events = body.get("events", [])
+    for event in events:
+        process_event(event, channel_secret, channel_token)
+
+# ✅ 單筆事件處理邏輯
+def process_event(event, channel_secret, channel_token):
     event_type = event.get("type")
     message = event.get("message", {})
     reply_token = event.get("replyToken")
@@ -29,7 +36,7 @@ def handle_event(event, channel_secret, channel_token):
             reply_message(reply_token, "📋 請輸入您的工號（mã nhân viên）", channel_token)
             return
 
-        # 根據狀態流程處理輸入
+        # 根據綁定狀態處理輸入
         state_info = get_user_state(line_id)
         if state_info:
             state = state_info["state"]
@@ -59,7 +66,7 @@ def handle_event(event, channel_secret, channel_token):
         if text in ["上班", "下班"]:
             reply_message(reply_token, f"📍 請傳送您目前的位置以進行【{text}】打卡", channel_token)
 
-    # 定位訊息
+    # 定位打卡處理
     elif event_type == "message" and message.get("type") == "location":
         lat, lng = message["latitude"], message["longitude"]
         distance = calculate_distance(lat, lng, COMPANY_LAT, COMPANY_LNG)
