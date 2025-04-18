@@ -10,7 +10,7 @@ from db import (
 
 # --- 計算距離（Haversine公式）---
 def calculate_distance(lat1, lon1, lat2, lon2):
-    R = 6371000
+    R = 6371000  # 地球半徑（公尺）
     dlat = radians(lat2 - lat1)
     dlon = radians(lon2 - lon1)
     a = sin(dlat/2)**2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon/2)**2
@@ -69,6 +69,7 @@ def process_event(event, channel_token):
     message = event.get("message", {})
     line_id = event.get("source", {}).get("userId")
 
+    # 加入好友後自動發送歡迎文字與按鈕
     if event_type == "follow":
         welcome_text = (
             "👋 歡迎加入打卡系統！\n\n"
