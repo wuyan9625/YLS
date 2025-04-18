@@ -27,8 +27,13 @@ def reply_message(reply_token, text, token):
         "replyToken": reply_token,
         "messages": [{"type": "text", "text": text}]
     }
-    response = requests.post(url, headers=headers, json=body)
-    print(response.json())  # 打印回應檢查是否正確
+    try:
+        response = requests.post(url, headers=headers, json=body)
+        response.raise_for_status()  # 如果狀態碼不是 2xx，將拋出異常
+        print(response.json())  # 打印回應檢查是否正確
+    except requests.exceptions.RequestException as e:
+        print(f"Error occurred: {e}")
+        # 可以發送錯誤通知給管理員或記錄錯誤
 
 # --- 回傳按鈕模板訊息（中越文）---
 def reply_button_template(reply_token, token):
@@ -105,8 +110,13 @@ def reply_button_template(reply_token, token):
               }
             }]
     }
-    response = requests.post(url, headers=headers, json=body)
-    print(response.json())  # 打印回應檢查是否正確
+    try:
+        response = requests.post(url, headers=headers, json=body)
+        response.raise_for_status()  # 如果狀態碼不是 2xx，將拋出異常
+        print(response.json())  # 打印回應檢查是否正確
+    except requests.exceptions.RequestException as e:
+        print(f"Error occurred: {e}")
+        # 可以發送錯誤通知給管理員或記錄錯誤
 
 # --- LINE webhook 入口 ---
 def handle_event(body, signature, channel_secret, channel_token):
