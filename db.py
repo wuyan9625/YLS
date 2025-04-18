@@ -3,15 +3,13 @@ from datetime import datetime
 
 # 建立資料庫連接
 def create_connection():
-    conn = sqlite3.connect("checkin.db")  # 此處為資料庫檔案名稱，可以根據需求更改
+    conn = sqlite3.connect("checkin.db")
     return conn
 
 # 初始化資料庫及資料表
 def init_db():
     conn = create_connection()
     cursor = conn.cursor()
-    
-    # 創建 users 表，存儲用戶的 LINE ID 和工號
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -20,8 +18,6 @@ def init_db():
             name TEXT
         )
     """)
-    
-    # 創建 checkin 表，存儲用戶的打卡記錄
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS checkin (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -31,8 +27,6 @@ def init_db():
             result TEXT
         )
     """)
-    
-    # 創建 user_states 表，存儲用戶的狀態（例如工號綁定進程）
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS user_states (
             line_id TEXT PRIMARY KEY,
@@ -41,8 +35,6 @@ def init_db():
             last_updated TEXT
         )
     """)
-    
-    # 提交並關閉連接
     conn.commit()
     conn.close()
 
@@ -73,7 +65,7 @@ def bind_user(line_id, emp_id, name):
     conn.close()
     return True
 
-# 保存打卡紀錄
+# 儲存打卡紀錄
 def save_checkin(data):
     conn = create_connection()
     cursor = conn.cursor()
