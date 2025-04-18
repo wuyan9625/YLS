@@ -60,22 +60,6 @@ def bind_user(line_id, employee_id, name):
     finally:
         conn.close()
 
-def is_employee_id_taken(employee_id):
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE employee_id = ?", (employee_id,))
-    result = cursor.fetchone()
-    conn.close()
-    return result is not None
-
-def is_line_id_bound(line_id):
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE line_id = ?", (line_id,))
-    result = cursor.fetchone()
-    conn.close()
-    return result is not None
-
 def get_employee_by_line_id(line_id):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
