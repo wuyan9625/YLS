@@ -9,24 +9,23 @@ from db import (
     is_line_id_bound, save_checkin, has_checked_in_today, init_db
 )
 
+# 公司座標與設定
 COMPANY_LAT = 24.4804401433383
 COMPANY_LNG = 120.7956030766374
 ALLOWED_RADIUS_M = 50
 
-# 處理 webhook events 陣列
 def handle_event(body, signature, channel_secret, channel_token):
     events = body.get("events", [])
     for event in events:
         process_event(event, channel_secret, channel_token)
 
-# 單筆事件處理
 def process_event(event, channel_secret, channel_token):
     event_type = event.get("type")
     message = event.get("message", {})
     reply_token = event.get("replyToken")
     line_id = event.get("source", {}).get("userId")
 
-    # ✅ 新好友加入歡迎訊息 + Quick Reply
+    # ✅ 自動歡迎訊息 + 中越 quick reply 按鈕
     if event_type == "follow":
         url = "https://api.line.me/v2/bot/message/reply"
         headers = {
@@ -37,14 +36,14 @@ def process_event(event, channel_secret, channel_token):
             "replyToken": reply_token,
             "messages": [{
                 "type": "text",
-                "text": "👋 歡迎加入打卡系統！\n請選擇下方功能開始使用：",
+                "text": "👋 歡迎加入打卡系統！\n📌 Vui lòng chọn chức năng bên dưới:",
                 "quickReply": {
                     "items": [
                         {
                             "type": "action",
                             "action": {
                                 "type": "message",
-                                "label": "綁定工號",
+                                "label": "綁定工號（Gắn mã）",
                                 "text": "綁定"
                             }
                         },
@@ -52,7 +51,7 @@ def process_event(event, channel_secret, channel_token):
                             "type": "action",
                             "action": {
                                 "type": "message",
-                                "label": "上班打卡",
+                                "label": "上班打卡（Đi làm）",
                                 "text": "上班"
                             }
                         },
@@ -60,7 +59,7 @@ def process_event(event, channel_secret, channel_token):
                             "type": "action",
                             "action": {
                                 "type": "message",
-                                "label": "下班打卡",
+                                "label": "下班打卡（Tan ca）",
                                 "text": "下班"
                             }
                         }
@@ -71,14 +70,17 @@ def process_event(event, channel_secret, channel_token):
         requests.post(url, headers=headers, json=body)
         return
 
+    # ✅ 處理文字輸入
     if event_type == "message" and message.get("type") == "text":
         text = message.get("text").strip()
 
+        # 啟動綁定流程
         if text in ["綁定", "我要綁定", "gắn mã", "gắn", "bind"]:
             update_user_state(line_id, "WAIT_EMP_ID")
-            reply_message(reply_token, "📋 請輸入您的工號（mã nhân viên）", channel_token)
+            reply_message(reply_token, "📋 請輸入您的工號（mã nhân viên）\n🔸 Vui lòng nhập mã nhân viên của bạn", channel_token)
             return
 
+        # 處理兩步式綁定
         state_info = get_user_state(line_id)
         if state_info:
             state = state_info["state"]
@@ -88,7 +90,7 @@ def process_event(event, channel_secret, channel_token):
                     reply_message(reply_token, "❌ 此工號已被其他人綁定！\n❌ Mã nhân viên đã được sử dụng!", channel_token)
                     return
                 update_user_state(line_id, "WAIT_NAME", temp_emp_id=emp_id)
-                reply_message(reply_token, "📋 請輸入您的姓名（tên）", channel_token)
+                reply_message(reply_token, "📋 請輸入您的姓名（tên）\n🔸 Vui lòng nhập tên của bạn", channel_token)
                 return
 
             elif state == "WAIT_NAME":
@@ -100,13 +102,15 @@ def process_event(event, channel_secret, channel_token):
                         f"✅ 綁定成功！工號：{emp_id}，姓名：{name}\n✅ Đã gắn mã nhân viên: {emp_id}, tên: {name}",
                         channel_token)
                 else:
-                    reply_message(reply_token, "❌ 綁定失敗，請重新嘗試", channel_token)
+                    reply_message(reply_token, "❌ 綁定失敗，請重新嘗試\n❌ Gắn mã thất bại, vui lòng thử lại", channel_token)
                 clear_user_state(line_id)
                 return
 
+        # 提示打卡
         if text in ["上班", "下班"]:
-            reply_message(reply_token, f"📍 請傳送您目前的位置以進行【{text}】打卡", channel_token)
+            reply_message(reply_token, f"📍 請傳送您目前的位置以進行【{text}】打卡\n📍 Gửi vị trí để chấm công {text}", channel_token)
 
+    # ✅ 定位打卡處理
     elif event_type == "message" and message.get("type") == "location":
         lat, lng = message["latitude"], message["longitude"]
         distance = calculate_distance(lat, lng, COMPANY_LAT, COMPANY_LNG)
@@ -144,7 +148,7 @@ def process_event(event, channel_secret, channel_token):
                 f"✅ 打卡成功（{check_type}）！\n"
                 f"🕒 時間：{now.strftime('%H:%M:%S')}\n"
                 f"📍 距離公司：{round(distance)} 公尺\n"
-                f"✅ Đã chấm công {check_type.lower()} thành công lúc {now.strftime('%H:%M:%S')}!"
+                f"✅ Đã chấm công {check_type.lower()} lúc {now.strftime('%H:%M:%S')}"
             )
         else:
             reply_text = (
@@ -154,7 +158,7 @@ def process_event(event, channel_secret, channel_token):
             )
         reply_message(reply_token, reply_text, channel_token)
 
-# LINE 簡訊回覆
+# --- LINE 簡訊回覆 ---
 def reply_message(reply_token, text, token):
     url = "https://api.line.me/v2/bot/message/reply"
     headers = {
@@ -170,6 +174,7 @@ def reply_message(reply_token, text, token):
     }
     requests.post(url, headers=headers, json=body)
 
+# --- 距離計算 ---
 def calculate_distance(lat1, lon1, lat2, lon2):
     R = 6371000
     dlat = radians(lat2 - lat1)
@@ -177,6 +182,7 @@ def calculate_distance(lat1, lon1, lat2, lon2):
     a = sin(dlat/2)**2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon/2)**2
     return R * 2 * asin(sqrt(a))
 
+# --- 綁定狀態管理 ---
 def get_user_state(line_id):
     conn = sqlite3.connect("checkin.db")
     cursor = conn.cursor()
