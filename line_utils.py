@@ -29,6 +29,32 @@ def reply_message(reply_token, text, token):
     }
     requests.post(url, headers=headers, json=body)
 
+# --- 回傳按鈕模板訊息（中越文）---
+def reply_button_template(reply_token, token):
+    url = "https://api.line.me/v2/bot/message/reply"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {token}"
+    }
+    body = {
+        "replyToken": reply_token,
+        "messages": [{
+            "type": "template",
+            "altText": "點選操作",
+            "template": {
+                "type": "buttons",
+                "title": "🔧 功能選單 / Menu chức năng",
+                "text": "請選擇操作（Vui lòng chọn thao tác）",
+                "actions": [
+                    {"type": "message", "label": "綁定 / Gắn mã", "text": "綁定"},
+                    {"type": "message", "label": "上班 / Đi làm", "text": "上班"},
+                    {"type": "message", "label": "下班 / Tan ca", "text": "下班"}
+                ]
+            }
+        }]
+    }
+    requests.post(url, headers=headers, json=body)
+
 # --- LINE webhook 入口 ---
 def handle_event(body, signature, channel_secret, channel_token):
     body_json = json.loads(body)
@@ -58,6 +84,7 @@ def process_event(event, channel_token):
             "📍 Vui lòng cài App định vị và bật nền"
         )
         reply_message(reply_token, welcome_text, channel_token)
+        reply_button_template(reply_token, channel_token)  # 顯示按鈕選單
         return
 
     if event_type == "message" and message.get("type") == "text":
