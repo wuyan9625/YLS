@@ -15,7 +15,7 @@ channel_token = os.getenv('LINE_CHANNEL_ACCESS_TOKEN')
 app = Flask(__name__)
 
 # 回調 URL，用於接收 LINE 發送的 webhook 請求
-@app.route("/line/webhook", methods=["POST"])  # 改為 /line/webhook
+@app.route("/line/webhook", methods=["POST"])
 def callback():
     # 獲取 LINE 服務器發送的 X-Signature 和請求體
     signature = request.headers["X-Line-Signature"]
@@ -26,5 +26,6 @@ def callback():
     return 'OK'
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))  # 使用 Render 提供的端口，默認使用 5000
+    # 使用 render 提供的端口，默認使用 5000
+    port = int(os.environ.get("PORT", 5000))
     app.run(debug=True, host="0.0.0.0", port=port)
