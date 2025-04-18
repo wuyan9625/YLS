@@ -11,6 +11,10 @@ load_dotenv()
 channel_secret = os.getenv('LINE_CHANNEL_SECRET')
 channel_token = os.getenv('LINE_CHANNEL_ACCESS_TOKEN')
 
+# 檢查環境變數是否正確加載
+if not channel_secret or not channel_token:
+    raise ValueError("Missing LINE_CHANNEL_SECRET or LINE_CHANNEL_ACCESS_TOKEN in environment variables")
+
 # 初始化 Flask 應用
 app = Flask(__name__)
 
@@ -26,5 +30,5 @@ def callback():
     return 'OK'
 
 if __name__ == "__main__":
-    # 啟動 Flask 服務
-    app.run(debug=True)
+    # 設置生產環境的端口和關閉調試模式
+    app.run(debug=False, host='0.0.0.0', port=int(os.getenv('PORT', 5000)))
