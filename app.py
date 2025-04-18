@@ -1,7 +1,7 @@
 from flask import Flask, request
 from dotenv import load_dotenv
 import os
-from line_utils import handle_event  # 正確引入 line_utils
+from line_utils import handle_event  # 引入 line_utils.py
 
 # 加載 .env 文件中的環境變數
 load_dotenv()
