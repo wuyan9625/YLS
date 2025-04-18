@@ -1,3 +1,10 @@
+# 引入 init_db 函數來初始化資料庫，確保資料表被創建
+from db import init_db
+
+# 初始化資料庫（創建資料表）
+init_db()
+
+# 接著再繼續 Flask 應用的其他部分
 from flask import Flask, request
 from dotenv import load_dotenv
 import os
