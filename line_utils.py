@@ -40,19 +40,70 @@ def reply_button_template(reply_token, token):
     body = {
         "replyToken": reply_token,
         "messages": [{
-            "type": "template",
-            "altText": "點選操作",
-            "template": {
-                "type": "buttons",
-                "title": "🔧 功能選單 / Menu chức năng",
-                "text": "請選擇操作（Vui lòng chọn thao tác）",
-                "actions": [
-                    {"type": "message", "label": "綁定 / Gắn mã", "text": "綁定"},
-                    {"type": "message", "label": "上班 / Đi làm", "text": "上班"},
-                    {"type": "message", "label": "下班 / Tan ca", "text": "下班"}
+              "type": "bubble",
+              "direction": "ltr",
+              "header": {
+                "type": "box",
+                "layout": "horizontal",
+                "contents": [
+                  {
+                    "type": "text",
+                    "text": "打卡系統",
+                    "align": "center",
+                    "contents": []
+                  }
                 ]
-            }
-        }]
+              },
+              "hero": {
+                "type": "image",
+                "url": "https://vos.line-scdn.net/bot-designer-template-images/bot-designer-icon.png",
+                "size": "full",
+                "aspectRatio": "1.51:1",
+                "aspectMode": "fit"
+              },
+              "body": {
+                "type": "box",
+                "layout": "vertical",
+                "contents": [
+                  {
+                    "type": "text",
+                    "text": "選擇menu",
+                    "align": "center",
+                    "contents": []
+                  }
+                ]
+              },
+              "footer": {
+                "type": "box",
+                "layout": "vertical",
+                "contents": [
+                  {
+                    "type": "button",
+                    "action": {
+                      "type": "message",
+                      "label": "綁定Gắn mã",
+                      "text": "綁定"
+                    }
+                  },
+                  {
+                    "type": "button",
+                    "action": {
+                      "type": "message",
+                      "label": "上班Đi làm",
+                      "text": "上班"
+                    }
+                  },
+                  {
+                    "type": "button",
+                    "action": {
+                      "type": "message",
+                      "label": "下班Tan ca",
+                      "text": "下班"
+                    }
+                  }
+                ]
+              }
+            }]
     }
     response = requests.post(url, headers=headers, json=body)
     print(response.json())  # 打印回應檢查是否正確
