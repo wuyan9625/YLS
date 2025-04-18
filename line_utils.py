@@ -124,50 +124,48 @@ def process_event(event, channel_token):
                 return
 
         if text in ["上班", "下班"]:
-            reply_message(reply_token, f"📍 請傳送您目前的位置以進行【{text}】打卡", channel_token)
-            return
+            # 檢查是否已打過上班卡
+            employee = get_employee_by_line_id(line_id)
+            if not employee:
+                reply_message(reply_token, "❌ 請先綁定工號再打卡\n❌ Vui lòng gắn mã trước khi chấm công", channel_token)
+                return
 
-    elif event_type == "message" and message.get("type") == "location":
-        lat = message["latitude"]
-        lng = message["longitude"]
-        now = datetime.now()
-        hour = now.hour
-        check_type = "上班" if hour < 15 else "下班"
+            check_type = "上班" if text == "上班" else "下班"
+            now = datetime.now()
 
-        employee = get_employee_by_line_id(line_id)
-        if not employee:
-            reply_message(reply_token, "❌ 請先綁定工號再打卡\n❌ Vui lòng gắn mã trước khi chấm công", channel_token)
-            return
+            # 檢查是否已經打過上班卡
+            if check_type == "上班":
+                if has_checked_in_today(employee[0], "上班"):
+                    reply_message(reply_token, "❌ 您今天已經上班過了，無法再次上班！", channel_token)
+                    return
+                if has_checked_in_today(employee[0], "下班"):
+                    reply_message(reply_token, "❌ 您今天已經下班，無法再上班！", channel_token)
+                    return
+                # 記錄上班時間
+                save_checkin({
+                    "employee_id": employee[0],
+                    "line_id": line_id,
+                    "name": employee[1],
+                    "check_type": "上班",
+                    "timestamp": now.strftime("%Y-%m-%d %H:%M:%S"),
+                    "result": "成功"
+                })
+                reply_message(reply_token, f"✅ 上班打卡成功！", channel_token)
 
-        from app import COMPANY_LAT, COMPANY_LNG, ALLOWED_RADIUS_M
-        distance = calculate_distance(lat, lng, COMPANY_LAT, COMPANY_LNG)
-        if has_checked_in_today(employee[0], check_type):
-            reply_message(reply_token,
-                f"❌ 您今天已打過【{check_type}】卡\n❌ Đã chấm công {check_type.lower()} hôm nay!",
-                channel_token)
-            return
-
-        result = "成功" if distance <= ALLOWED_RADIUS_M else "失敗"
-        save_checkin({
-            "employee_id": employee[0],
-            "line_id": line_id,
-            "name": employee[1],
-            "check_type": check_type,
-            "timestamp": now.strftime("%Y-%m-%d %H:%M:%S"),
-            "result": result
-        })
-
-        if result == "成功":
-            msg = (
-                f"✅ 打卡成功（{check_type}）\n🕒 {now.strftime('%H:%M:%S')}\n"
-                f"✅ Đã chấm công {check_type.lower()} thành công!"
-            )
-        else:
-            msg = (
-                f"❌ 超出公司定位範圍，打卡失敗！\n📍 距離公司約 {round(distance)} 公尺\n"
-                f"❌ Ngoài khu vực công ty, không thể chấm công!"
-            )
-        reply_message(reply_token, msg, channel_token)
+            # 檢查是否已經打過下班卡
+            if check_type == "下班":
+                if not has_checked_in_today(employee[0], "上班"):
+                    reply_message(reply_token, "❌ 您未上班，無法下班！", channel_token)
+                    return
+                save_checkin({
+                    "employee_id": employee[0],
+                    "line_id": line_id,
+                    "name": employee[1],
+                    "check_type": "下班",
+                    "timestamp": now.strftime("%Y-%m-%d %H:%M:%S"),
+                    "result": "成功"
+                })
+                reply_message(reply_token, f"✅ 下班打卡成功！", channel_token)
 
 # --- 暫存綁定狀態 ---
 def get_user_state(line_id):
