@@ -13,9 +13,23 @@
     <h3 class="mb-4">👨‍💼 打卡系統後台控制台</h3>
 
     <div class="mb-4">
-      <h5>📥 報表下載</h5>
-      <a href="/admin/export/checkins?user=admin&pass=1234" class="btn btn-success me-2">下載打卡紀錄報表</a>
-      <a href="/admin/export/location_logs?user=admin&pass=1234" class="btn btn-primary">下載定位紀錄報表</a>
+      <h5>📥 報表下載（可選月份）</h5>
+      <form class="row g-2" method="GET" action="/admin/export/checkins">
+        <div class="col-auto">
+          <input type="month" name="month" class="form-control" placeholder="選擇月份">
+        </div>
+        <div class="col-auto">
+          <button class="btn btn-success">下載打卡報表</button>
+        </div>
+      </form>
+      <form class="row g-2 mt-2" method="GET" action="/admin/export/location_logs">
+        <div class="col-auto">
+          <input type="month" name="month" class="form-control" placeholder="選擇月份">
+        </div>
+        <div class="col-auto">
+          <button class="btn btn-primary">下載定位報表</button>
+        </div>
+      </form>
     </div>
 
     <div class="mb-4">
@@ -36,9 +50,9 @@
             <td>{{ user.name }}</td>
             <td>{{ user.bind_time[:19].replace("T", " ") }}</td>
             <td>
-              <form method="POST" action="/admin/delete_user" style="display:inline-block;">
+              <form method="POST" action="/admin/delete_user" onsubmit="return confirm('確定刪除此員工？')">
                 <input type="hidden" name="employee_id" value="{{ user.employee_id }}">
-                <button class="btn btn-danger btn-xs" onclick="return confirm('確定要刪除此員工？')">刪除</button>
+                <button class="btn btn-danger btn-xs">刪除</button>
               </form>
             </td>
           </tr>
