@@ -1,96 +1,96 @@
 import sqlite3
 from datetime import datetime
 
-DB_NAME = "checkin.db"
-
+# 資料庫初始化
 def init_db():
-    conn = sqlite3.connect(DB_NAME)
+    conn = sqlite3.connect('checkin.db')
     cursor = conn.cursor()
+    # 如果資料表不存在，則創建 user_states 表
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS user_states (
+        line_id TEXT PRIMARY KEY,
+        state TEXT,
+        temp_employee_id TEXT,
+        last_updated TEXT
+    )
+    ''')
+    conn.commit()
+    conn.close()
 
-    # 使用者主表：正式綁定資料
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            line_id TEXT UNIQUE,
-            employee_id TEXT UNIQUE,
-            name TEXT,
-            bind_time TEXT
-        )
-    """)
+# 更新使用者狀態
+def update_user_state(line_id, state, temp_emp_id=None):
+    conn = sqlite3.connect('checkin.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+        REPLACE INTO user_states (line_id, state, temp_employee_id, last_updated)
+        VALUES (?, ?, ?, ?)
+    ''', (line_id, state, temp_emp_id, datetime.now().isoformat()))
+    conn.commit()
+    conn.close()
 
-    # 打卡記錄表
-    cursor.execute("""
+# 取得使用者狀態
+def get_user_state(line_id):
+    conn = sqlite3.connect('checkin.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT state, temp_employee_id FROM user_states WHERE line_id = ?', (line_id,))
+    row = cursor.fetchone()
+    conn.close()
+    if row:
+        return {"state": row[0], "temp_emp_id": row[1]}
+    return None
+
+# 清除使用者狀態
+def clear_user_state(line_id):
+    conn = sqlite3.connect('checkin.db')
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM user_states WHERE line_id = ?', (line_id,))
+    conn.commit()
+    conn.close()
+
+# 檢查員工ID是否已被綁定
+def is_employee_id_taken(emp_id):
+    conn = sqlite3.connect('checkin.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT line_id FROM user_states WHERE temp_employee_id = ?', (emp_id,))
+    row = cursor.fetchone()
+    conn.close()
+    return row is not None
+
+# 綁定員工
+def bind_user(line_id, emp_id, name):
+    conn = sqlite3.connect('checkin.db')
+    cursor = conn.cursor()
+    cursor.execute('INSERT OR REPLACE INTO user_states (line_id, temp_employee_id, state) VALUES (?, ?, ?)', (line_id, emp_id, "WAIT_NAME"))
+    conn.commit()
+    conn.close()
+    return True
+
+# 確認今天是否已經打卡
+def has_checked_in_today(employee_id, check_type):
+    conn = sqlite3.connect('checkin.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM checkins WHERE employee_id = ? AND check_type = ? AND DATE(timestamp) = DATE("now")', (employee_id, check_type))
+    row = cursor.fetchone()
+    conn.close()
+    return row is not None
+
+# 儲存打卡記錄
+def save_checkin(checkin_data):
+    conn = sqlite3.connect('checkin.db')
+    cursor = conn.cursor()
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS checkins (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
             employee_id TEXT,
             line_id TEXT,
             name TEXT,
             check_type TEXT,
             timestamp TEXT,
-            latitude REAL,
-            longitude REAL,
-            distance REAL,
             result TEXT
         )
-    """)
-
-    # 使用者暫存綁定狀態表（兩步式流程用）
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS user_states (
-            line_id TEXT PRIMARY KEY,
-            state TEXT,
-            temp_employee_id TEXT,
-            last_updated TEXT
-        )
-    """)
-
-    conn.commit()
-    conn.close()
-
-def bind_user(line_id, employee_id, name):
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    try:
-        cursor.execute("INSERT INTO users (line_id, employee_id, name, bind_time) VALUES (?, ?, ?, ?)",
-                       (line_id, employee_id, name, datetime.now().isoformat()))
-        conn.commit()
-        return True
-    except sqlite3.IntegrityError:
-        return False
-    finally:
-        conn.close()
-
-def get_employee_by_line_id(line_id):
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("SELECT employee_id, name FROM users WHERE line_id = ?", (line_id,))
-    result = cursor.fetchone()
-    conn.close()
-    return result
-
-def has_checked_in_today(employee_id, check_type):
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    today = datetime.now().strftime("%Y-%m-%d")
-    cursor.execute("""
-        SELECT * FROM checkins 
-        WHERE employee_id = ? AND check_type = ? AND DATE(timestamp) = ?
-    """, (employee_id, check_type, today))
-    result = cursor.fetchone()
-    conn.close()
-    return result is not None
-
-def save_checkin(data):
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute("""
-        INSERT INTO checkins (
-            employee_id, line_id, name, check_type, timestamp,
-            latitude, longitude, distance, result
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (
-        data["employee_id"], data["line_id"], data["name"], data["check_type"], data["timestamp"],
-        data["latitude"], data["longitude"], data["distance"], data["result"]
-    ))
+    ''')
+    cursor.execute('''
+        INSERT INTO checkins (employee_id, line_id, name, check_type, timestamp, result)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', (checkin_data['employee_id'], checkin_data['line_id'], checkin_data['name'], checkin_data['check_type'], checkin_data['timestamp'], checkin_data['result']))
     conn.commit()
     conn.close()
