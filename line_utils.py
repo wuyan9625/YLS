@@ -93,6 +93,9 @@ def process_event(event, channel_token):
     if event_type == "message" and message.get("type") == "text":
         text = message.get("text").strip()
 
+        # 顯示選單，每次發送文字消息都回應選單
+        reply_button_template(reply_token, channel_token)
+
         if text in ["綁定", "我要綁定", "gắn mã", "gắn", "bind"]:
             update_user_state(line_id, "WAIT_EMP_ID")
             reply_message(reply_token, "📋 請輸入您的工號（mã nhân viên）", channel_token)
@@ -136,7 +139,7 @@ def process_event(event, channel_token):
             # 檢查是否已經打過上班卡
             if check_type == "上班":
                 if has_checked_in_today(employee[0], "上班"):
-                    reply_message(reply_token, "❌ 您今天已經上班過了，無法再次上班！", channel_token)
+                    reply_message(reply_token, "❌ 您今天已經上班過了，無法再次上班！\n ❌ Không chấm công nhiều lần", channel_token)
                     return
                 if has_checked_in_today(employee[0], "下班"):
                     reply_message(reply_token, "❌ 您今天已經下班，無法再上班！", channel_token)
@@ -150,12 +153,12 @@ def process_event(event, channel_token):
                     "timestamp": now.strftime("%Y-%m-%d %H:%M:%S"),
                     "result": "成功"
                 })
-                reply_message(reply_token, f"✅ 上班打卡成功！", channel_token)
+                reply_message(reply_token, f"✅ 上班打卡成功！\n ✅Đăng ký thành công", channel_token)
 
             # 檢查是否已經打過下班卡
             if check_type == "下班":
                 if not has_checked_in_today(employee[0], "上班"):
-                    reply_message(reply_token, "❌ 您未上班，無法下班！", channel_token)
+                    reply_message(reply_token, "❌ 您未上班，無法下班！\n ❌ Không có hồ sơ chấm công làm việc", channel_token)
                     return
                 save_checkin({
                     "employee_id": employee[0],
@@ -165,7 +168,7 @@ def process_event(event, channel_token):
                     "timestamp": now.strftime("%Y-%m-%d %H:%M:%S"),
                     "result": "成功"
                 })
-                reply_message(reply_token, f"✅ 下班打卡成功！", channel_token)
+                reply_message(reply_token, f"✅ 下班打卡成功！\n ✅ Đã chấm công thành công", channel_token)
 
 # --- 暫存綁定狀態 ---
 def get_user_state(line_id):
