@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>打卡管理後台</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    .btn-xs { padding: 2px 8px; font-size: 0.8rem; }
+  </style>
+</head>
+<body class="bg-light">
+  <div class="container mt-5">
+    <h3 class="mb-4">👨‍💼 打卡系統後台控制台</h3>
+
+    <div class="mb-4">
+      <h5>📥 報表下載</h5>
+      <a href="/admin/export/checkins?user=admin&pass=1234" class="btn btn-success me-2">下載打卡紀錄報表</a>
+      <a href="/admin/export/location_logs?user=admin&pass=1234" class="btn btn-primary">下載定位紀錄報表</a>
+    </div>
+
+    <div class="mb-4">
+      <h5>👥 已綁定員工列表</h5>
+      <table class="table table-bordered bg-white">
+        <thead class="table-light">
+          <tr>
+            <th>工號</th>
+            <th>姓名</th>
+            <th>綁定時間</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for user in users %}
+          <tr>
+            <td>{{ user.employee_id }}</td>
+            <td>{{ user.name }}</td>
+            <td>{{ user.bind_time[:19].replace("T", " ") }}</td>
+            <td>
+              <form method="POST" action="/admin/delete_user" style="display:inline-block;">
+                <input type="hidden" name="employee_id" value="{{ user.employee_id }}">
+                <button class="btn btn-danger btn-xs" onclick="return confirm('確定要刪除此員工？')">刪除</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</body>
+</html>
