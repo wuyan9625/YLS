@@ -1,6 +1,7 @@
 import sqlite3
-from datetime import datetime, timedelta
-import calendar
+from datetime import datetime
+import csv
+import io
 
 DB_NAME = "checkin.db"
 
@@ -8,6 +9,7 @@ def init_db():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
+    # 使用者
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -18,6 +20,7 @@ def init_db():
         )
     """)
 
+    # 打卡紀錄（不包含地點）
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS checkins (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -26,13 +29,26 @@ def init_db():
             name TEXT,
             check_type TEXT,
             timestamp TEXT,
-            latitude REAL,
-            longitude REAL,
-            distance REAL,
             result TEXT
         )
     """)
 
+    # 定位日誌
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS location_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            employee_id TEXT,
+            name TEXT,
+            line_id TEXT,
+            latitude REAL,
+            longitude REAL,
+            timestamp TEXT,
+            distance REAL,
+            source TEXT
+        )
+    """)
+
+    # 綁定狀態暫存
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS user_states (
             line_id TEXT PRIMARY KEY,
@@ -45,6 +61,7 @@ def init_db():
     conn.commit()
     conn.close()
 
+# === 綁定與查詢 ===
 def bind_user(line_id, employee_id, name):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
@@ -82,6 +99,7 @@ def get_employee_by_line_id(line_id):
     conn.close()
     return result
 
+# === 打卡與定位記錄 ===
 def has_checked_in_today(employee_id, check_type):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
@@ -99,71 +117,92 @@ def save_checkin(data):
     cursor = conn.cursor()
     cursor.execute("""
         INSERT INTO checkins (
-            employee_id, line_id, name, check_type, timestamp,
-            latitude, longitude, distance, result
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            employee_id, line_id, name, check_type, timestamp, result
+        ) VALUES (?, ?, ?, ?, ?, ?)
     """, (
-        data["employee_id"], data["line_id"], data["name"], data["check_type"], data["timestamp"],
-        data["latitude"], data["longitude"], data["distance"], data["result"]
+        data["employee_id"], data["line_id"], data["name"],
+        data["check_type"], data["timestamp"], data["result"]
     ))
     conn.commit()
     conn.close()
 
-def export_checkins_csv(month: str = None):
-    import io
+def save_location_log(employee_id, name, line_id, lat, lng, timestamp, distance, source="OwnTracks"):
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO location_logs (
+            employee_id, name, line_id, latitude, longitude, timestamp, distance, source
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (employee_id, name, line_id, lat, lng, timestamp, distance, source))
+    conn.commit()
+    conn.close()
+
+# === 匯出打卡報表（可選月）===
+def export_checkins_summary_csv(month=None):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
     if month:
-        year, mon = map(int, month.split("-"))
-        start_date = f"{year}-{mon:02d}-01"
-        end_day = calendar.monthrange(year, mon)[1]
-        end_date = f"{year}-{mon:02d}-{end_day}"
+        cursor.execute("""
+            SELECT employee_id, name, check_type, timestamp
+            FROM checkins
+            WHERE strftime('%Y-%m', timestamp) = ?
+            ORDER BY employee_id, DATE(timestamp), check_type
+        """, (month,))
     else:
-        today = datetime.now()
-        start_date = today.replace(day=1).strftime("%Y-%m-%d")
-        end_day = calendar.monthrange(today.year, today.month)[1]
-        end_date = today.replace(day=end_day).strftime("%Y-%m-%d")
-        month = today.strftime("%Y-%m")
+        cursor.execute("""
+            SELECT employee_id, name, check_type, timestamp
+            FROM checkins
+            ORDER BY employee_id, DATE(timestamp), check_type
+        """)
 
-    # 所有已綁定使用者
-    cursor.execute("SELECT employee_id, name FROM users ORDER BY employee_id")
-    users = cursor.fetchall()
-
-    # 抓所有該月打卡紀錄
-    cursor.execute("""
-        SELECT employee_id, check_type, timestamp FROM checkins 
-        WHERE DATE(timestamp) BETWEEN ? AND ?
-    """, (start_date, end_date))
-    checkins = cursor.fetchall()
+    rows = cursor.fetchall()
     conn.close()
 
-    # 整理打卡紀錄到 dict[工號][日期] = {上班:時間, 下班:時間}
-    records = {}
-    for emp_id, ctype, ts in checkins:
-        date = ts.split(" ")[0]
-        time = ts.split(" ")[1]
-        if emp_id not in records:
-            records[emp_id] = {}
-        if date not in records[emp_id]:
-            records[emp_id][date] = {"上班": "", "下班": ""}
-        records[emp_id][date][ctype] = time
+    summary = {}
+    for emp_id, name, ctype, ts in rows:
+        date = ts[:10]
+        if emp_id not in summary:
+            summary[emp_id] = {"name": name, "records": {}}
+        if date not in summary[emp_id]["records"]:
+            summary[emp_id]["records"][date] = {"上班": "", "下班": ""}
+        summary[emp_id]["records"][date][ctype] = ts[11:]
 
-    # 輸出格式
     output = io.StringIO()
-    for emp_id, name in users:
-        output.write(f"工號：{emp_id}\n")
-        output.write(f"姓名：{name}\n")
-        output.write(f"月份：{month}\n")
-        output.write("日期,上班時間,下班時間\n")
+    writer = csv.writer(output)
+    for emp_id, emp_data in summary.items():
+        writer.writerow([f"工號：{emp_id}", f"姓名：{emp_data['name']}"])
+        writer.writerow(["日期", "上班時間", "下班時間"])
+        for date, record in emp_data["records"].items():
+            writer.writerow([date, record["上班"], record["下班"]])
+        writer.writerow([])
 
-        # 該月每一天
-        year, mon = map(int, month.split("-"))
-        for day in range(1, calendar.monthrange(year, mon)[1] + 1):
-            date_str = f"{year}-{mon:02d}-{day:02d}"
-            r = records.get(emp_id, {}).get(date_str, {"上班": "", "下班": ""})
-            output.write(f"{date_str},{r['上班']},{r['下班']}\n")
+    return output.getvalue()
 
-        output.write("\n")  # 員工之間空一行
+# === 匯出定位紀錄（可選月）===
+def export_location_logs_csv(month=None):
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
 
+    if month:
+        cursor.execute("""
+            SELECT employee_id, name, line_id, latitude, longitude, timestamp, distance, source
+            FROM location_logs
+            WHERE strftime('%Y-%m', timestamp) = ?
+            ORDER BY timestamp DESC
+        """, (month,))
+    else:
+        cursor.execute("""
+            SELECT employee_id, name, line_id, latitude, longitude, timestamp, distance, source
+            FROM location_logs
+            ORDER BY timestamp DESC
+        """)
+
+    rows = cursor.fetchall()
+    conn.close()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["工號", "姓名", "Line ID", "緯度", "經度", "時間", "距離（公尺）", "來源"])
+    writer.writerows(rows)
     return output.getvalue()
