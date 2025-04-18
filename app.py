@@ -1,15 +1,9 @@
-# 引入 init_db 函數來初始化資料庫，確保資料表被創建
-from db import init_db
-
-# 初始化資料庫（創建資料表）
-init_db()
-
-# 接著再繼續 Flask 應用的其他部分
 from flask import Flask, request
 from dotenv import load_dotenv
 import os
 import json
 from line_utils import handle_event  # 假設 line_utils.py 內有處理 LINE 事件的邏輯
+from db import init_db  # 匯入初始化數據庫的函數
 
 # 加載 .env 文件中的環境變數
 load_dotenv()
@@ -20,6 +14,9 @@ channel_token = os.getenv('LINE_CHANNEL_ACCESS_TOKEN')
 
 # 初始化 Flask 應用
 app = Flask(__name__)
+
+# 在應用啟動時初始化數據庫（創建所需表格）
+init_db()
 
 # 回調 URL，用於接收 LINE 發送的 webhook 請求
 @app.route("/line/webhook", methods=["POST"])
