@@ -1,5 +1,6 @@
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
+import calendar
 
 DB_NAME = "checkin.db"
 
@@ -7,7 +8,6 @@ def init_db():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
-    # 使用者主表：正式綁定資料
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -18,7 +18,6 @@ def init_db():
         )
     """)
 
-    # 打卡記錄表
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS checkins (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -34,7 +33,6 @@ def init_db():
         )
     """)
 
-    # 使用者暫存綁定狀態表（兩步式流程用）
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS user_states (
             line_id TEXT PRIMARY KEY,
@@ -110,46 +108,62 @@ def save_checkin(data):
     ))
     conn.commit()
     conn.close()
-def export_checkins_csv():
+
+def export_checkins_csv(month: str = None):
     import io
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
-    # 抓所有打卡紀錄，照工號 + 日期排序
+    if month:
+        year, mon = map(int, month.split("-"))
+        start_date = f"{year}-{mon:02d}-01"
+        end_day = calendar.monthrange(year, mon)[1]
+        end_date = f"{year}-{mon:02d}-{end_day}"
+    else:
+        today = datetime.now()
+        start_date = today.replace(day=1).strftime("%Y-%m-%d")
+        end_day = calendar.monthrange(today.year, today.month)[1]
+        end_date = today.replace(day=end_day).strftime("%Y-%m-%d")
+        month = today.strftime("%Y-%m")
+
+    # 所有已綁定使用者
+    cursor.execute("SELECT employee_id, name FROM users ORDER BY employee_id")
+    users = cursor.fetchall()
+
+    # 抓所有該月打卡紀錄
     cursor.execute("""
-        SELECT employee_id, name, check_type, timestamp
-        FROM checkins
-        ORDER BY employee_id, DATE(timestamp), check_type
-    """)
-    rows = cursor.fetchall()
+        SELECT employee_id, check_type, timestamp FROM checkins 
+        WHERE DATE(timestamp) BETWEEN ? AND ?
+    """, (start_date, end_date))
+    checkins = cursor.fetchall()
     conn.close()
 
-    # 整理資料為：{ 工號: { 日期: {'上班':時間, '下班':時間 } } }
-    data = {}
-    for emp_id, name, ctype, ts in rows:
-        date_str = ts.split(" ")[0]
-        time_str = ts.split(" ")[1]
-        if emp_id not in data:
-            data[emp_id] = {
-                "name": name,
-                "records": {}
-            }
-        if date_str not in data[emp_id]["records"]:
-            data[emp_id]["records"][date_str] = {"上班": "", "下班": ""}
-        if ctype == "上班":
-            data[emp_id]["records"][date_str]["上班"] = time_str
-        elif ctype == "下班":
-            data[emp_id]["records"][date_str]["下班"] = time_str
+    # 整理打卡紀錄到 dict[工號][日期] = {上班:時間, 下班:時間}
+    records = {}
+    for emp_id, ctype, ts in checkins:
+        date = ts.split(" ")[0]
+        time = ts.split(" ")[1]
+        if emp_id not in records:
+            records[emp_id] = {}
+        if date not in records[emp_id]:
+            records[emp_id][date] = {"上班": "", "下班": ""}
+        records[emp_id][date][ctype] = time
 
-    # 輸出 CSV 格式
+    # 輸出格式
     output = io.StringIO()
-    for emp_id, emp_data in data.items():
+    for emp_id, name in users:
         output.write(f"工號：{emp_id}\n")
-        output.write(f"姓名：{emp_data['name']}\n")
+        output.write(f"姓名：{name}\n")
+        output.write(f"月份：{month}\n")
         output.write("日期,上班時間,下班時間\n")
-        for date, times in emp_data["records"].items():
-            output.write(f"{date},{times['上班']},{times['下班']}\n")
+
+        # 該月每一天
+        year, mon = map(int, month.split("-"))
+        for day in range(1, calendar.monthrange(year, mon)[1] + 1):
+            date_str = f"{year}-{mon:02d}-{day:02d}"
+            r = records.get(emp_id, {}).get(date_str, {"上班": "", "下班": ""})
+            output.write(f"{date_str},{r['上班']},{r['下班']}\n")
+
         output.write("\n")  # 員工之間空一行
 
     return output.getvalue()
-
