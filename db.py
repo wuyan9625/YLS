@@ -111,18 +111,45 @@ def save_checkin(data):
     conn.commit()
     conn.close()
 def export_checkins_csv():
+    import io
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
+
+    # 抓所有打卡紀錄，照工號 + 日期排序
     cursor.execute("""
-        SELECT employee_id, name, check_type, timestamp, latitude, longitude, distance, result
+        SELECT employee_id, name, check_type, timestamp
         FROM checkins
-        ORDER BY timestamp DESC
+        ORDER BY employee_id, DATE(timestamp), check_type
     """)
     rows = cursor.fetchall()
     conn.close()
 
-    # 轉成 CSV 格式
-    csv_content = "工號,姓名,類型,時間,緯度,經度,距離,結果\n"
-    for row in rows:
-        csv_content += ",".join([str(col) for col in row]) + "\n"
-    return csv_content
+    # 整理資料為：{ 工號: { 日期: {'上班':時間, '下班':時間 } } }
+    data = {}
+    for emp_id, name, ctype, ts in rows:
+        date_str = ts.split(" ")[0]
+        time_str = ts.split(" ")[1]
+        if emp_id not in data:
+            data[emp_id] = {
+                "name": name,
+                "records": {}
+            }
+        if date_str not in data[emp_id]["records"]:
+            data[emp_id]["records"][date_str] = {"上班": "", "下班": ""}
+        if ctype == "上班":
+            data[emp_id]["records"][date_str]["上班"] = time_str
+        elif ctype == "下班":
+            data[emp_id]["records"][date_str]["下班"] = time_str
+
+    # 輸出 CSV 格式
+    output = io.StringIO()
+    for emp_id, emp_data in data.items():
+        output.write(f"工號：{emp_id}\n")
+        output.write(f"姓名：{emp_data['name']}\n")
+        output.write("日期,上班時間,下班時間\n")
+        for date, times in emp_data["records"].items():
+            output.write(f"{date},{times['上班']},{times['下班']}\n")
+        output.write("\n")  # 員工之間空一行
+
+    return output.getvalue()
+
