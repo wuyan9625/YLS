@@ -7,7 +7,7 @@ def init_db():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
-    # 建立使用者綁定表
+    # 使用者主表：正式綁定資料
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -18,7 +18,7 @@ def init_db():
         )
     """)
 
-    # 建立打卡紀錄表
+    # 打卡記錄表
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS checkins (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -31,6 +31,16 @@ def init_db():
             longitude REAL,
             distance REAL,
             result TEXT
+        )
+    """)
+
+    # 使用者暫存綁定狀態表（兩步式流程用）
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS user_states (
+            line_id TEXT PRIMARY KEY,
+            state TEXT,
+            temp_employee_id TEXT,
+            last_updated TEXT
         )
     """)
 
