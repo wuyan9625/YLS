@@ -26,5 +26,5 @@ def callback():
     return 'OK'
 
 if __name__ == "__main__":
-    # 啟動 Flask 服務
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))  # 使用 Render 提供的端口，默認使用 5000
+    app.run(debug=True, host="0.0.0.0", port=port)
