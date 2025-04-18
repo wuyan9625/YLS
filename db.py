@@ -110,3 +110,19 @@ def save_checkin(data):
     ))
     conn.commit()
     conn.close()
+def export_checkins_csv():
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT employee_id, name, check_type, timestamp, latitude, longitude, distance, result
+        FROM checkins
+        ORDER BY timestamp DESC
+    """)
+    rows = cursor.fetchall()
+    conn.close()
+
+    # 轉成 CSV 格式
+    csv_content = "工號,姓名,類型,時間,緯度,經度,距離,結果\n"
+    for row in rows:
+        csv_content += ",".join([str(col) for col in row]) + "\n"
+    return csv_content
