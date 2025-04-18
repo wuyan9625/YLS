@@ -127,3 +127,29 @@ def process_event(event, channel_token):
                 reply_message(reply_token, 
                     f"✅ 下班打卡成功！\n下班時間：{formatted_time} / ✅ Đã chấm công thành công\nGiờ chấm công ra: {formatted_time}",
                     channel_token)  # 中文 + 越南文
+
+# --- 暫存綁定狀態 ---
+def get_user_state(line_id):
+    conn = sqlite3.connect("checkin.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT state, temp_employee_id FROM user_states WHERE line_id = ?", (line_id,))
+    row = cursor.fetchone()
+    conn.close()
+    if row:
+        return {"state": row[0], "temp_emp_id": row[1]}
+    return None
+
+def update_user_state(line_id, state, temp_emp_id=None):
+    conn = sqlite3.connect("checkin.db")
+    cursor = conn.cursor()
+    cursor.execute("REPLACE INTO user_states (line_id, state, temp_employee_id, last_updated) VALUES (?, ?, ?, ?)",
+                   (line_id, state, temp_emp_id, datetime.now().isoformat()))
+    conn.commit()
+    conn.close()
+
+def clear_user_state(line_id):
+    conn = sqlite3.connect("checkin.db")
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM user_states WHERE line_id = ?", (line_id,))
+    conn.commit()
+    conn.close()
