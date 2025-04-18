@@ -21,9 +21,10 @@ def webhook():
     signature = request.headers.get("X-Line-Signature")
     body = request.get_data(as_text=True)
     try:
+        print("🟡 收到 webhook：", body)  # ✅ 加這行 debug
         handle_event(json.loads(body), signature, CHANNEL_SECRET, CHANNEL_ACCESS_TOKEN)
     except Exception as e:
-        print("Webhook Error:", e)
+        print("🔴 Webhook Error:", e)
         return "Error", 400
     return "OK", 200
 
