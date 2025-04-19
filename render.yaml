@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: yls-checkin-bot
+    env: python
+    buildCommand: ""
+    startCommand: "python app.py"
+    autoDeploy: true
+    envVars:
+      - key: SECRET_KEY
+        value: your_secret_key_here
