@@ -53,27 +53,32 @@ def process_message(line_id, msg):
 
     now = datetime.now(tz)
     now_str = now.strftime("%Y-%m-%d %H:%M")
+    now_sql = now.strftime("%Y-%m-%d %H:%M:%S")
 
     if not user:
+        if msg in ["上班", "下班", "Đi làm", "Tan làm"]:
+            reply_message(line_id, "請先綁定帳號再打卡。\nVui lòng liên kết tài khoản trước khi chấm công.")
+            conn.close()
+            return
+
         if not state_row:
-            cursor.execute("INSERT INTO user_states VALUES (?, ?, ?, ?)",
-                           (line_id, "awaiting_employee_id", None, now.strftime("%Y-%m-%d %H:%M:%S")))
+            cursor.execute("INSERT INTO user_states VALUES (?, ?, ?, ?)", (line_id, "awaiting_employee_id", None, now_sql))
             conn.commit()
             reply_message(line_id, "請輸入您的工號：\nVui lòng nhập mã số nhân viên của bạn:")
         elif state_row[1] == "awaiting_employee_id":
-            if not msg.isdigit():
-                reply_message(line_id, "工號是不是輸入錯誤？請輸入純數字工號。\nMã số nhân viên không hợp lệ, vui lòng nhập lại bằng số.")
+            if not msg.isdigit() or not (2 <= len(msg) <= 3):
+                reply_message(line_id, "工號是不是輸入錯誤？請輸入2~3位數字工號。\nMã số nhân viên không hợp lệ, vui lòng nhập lại bằng số từ 2-3 chữ số.")
             else:
                 temp_id = msg
                 cursor.execute("UPDATE user_states SET state=?, temp_employee_id=?, last_updated=? WHERE line_id=?",
-                               ("awaiting_name", temp_id, now.strftime("%Y-%m-%d %H:%M:%S"), line_id))
+                               ("awaiting_name", temp_id, now_sql, line_id))
                 conn.commit()
                 reply_message(line_id, "請輸入您的姓名：\nVui lòng nhập họ tên của bạn:")
         elif state_row[1] == "awaiting_name":
             temp_name = msg
             temp_id = state_row[2]
             cursor.execute("INSERT OR REPLACE INTO users VALUES (?, ?, ?, ?)",
-                           (line_id, temp_id, temp_name, now.strftime("%Y-%m-%d %H:%M:%S")))
+                           (line_id, temp_id, temp_name, now_sql))
             cursor.execute("DELETE FROM user_states WHERE line_id=?", (line_id,))
             conn.commit()
             reply_message(line_id, f"綁定成功！{temp_name} ({temp_id})\nLiên kết thành công!")
@@ -94,7 +99,7 @@ def process_message(line_id, msg):
         cursor.execute('''
             INSERT INTO checkins (employee_id, name, check_type, timestamp, result)
             VALUES (?, ?, ?, ?, ?)
-        ''', (employee_id, name, check_type, now.strftime("%Y-%m-%d %H:%M:%S"), result))
+        ''', (employee_id, name, check_type, now_sql, result))
         conn.commit()
 
     if msg in ["上班", "Đi làm"]:
@@ -102,26 +107,25 @@ def process_message(line_id, msg):
             reply_message(line_id, f"{name}，你今天已經打過上班卡了。\n{name}, bạn đã chấm công đi làm hôm nay rồi.")
         else:
             insert_checkin("上班", "正常")
-            reply_message(line_id, f"{name}，上班打卡成功！\n打卡時間：{now_str}\n{name}, chấm công đi làm thành công!")
+            reply_message(line_id, f"{name}，上班打卡成功！\n🔴 時間：{now_str}\n{name}, chấm công đi làm thành công!")
 
     elif msg in ["下班", "Tan làm"]:
         if not any(r[0] == "上班" for r in today_records):
             cursor.execute("UPDATE user_states SET state=?, last_updated=? WHERE line_id=?",
-                           ("awaiting_confirm_forgot_checkin", now.strftime("%Y-%m-%d %H:%M:%S"), line_id))
+                           ("awaiting_confirm_forgot_checkin", now_sql, line_id))
             conn.commit()
             reply_message(line_id, "查無上班記錄，是否忘記打上班卡？\nBạn quên chấm công đi làm? Gõ '確認' để補打下班卡.")
         elif any(r[0] == "下班" for r in today_records):
             reply_message(line_id, f"{name}，你今天已經打過下班卡了。\n{name}, bạn đã chấm công tan làm hôm nay rồi.")
         else:
-            checkin_time = tz.localize(datetime.strptime(
-                [r[1] for r in today_records if r[0] == "上班"][0], "%Y-%m-%d %H:%M:%S"
-            ))
+            checkin_time = datetime.strptime([r[1] for r in today_records if r[0] == "上班"][0], "%Y-%m-%d %H:%M:%S")
+            checkin_time = tz.localize(checkin_time)
             if now - checkin_time > timedelta(hours=14):
                 insert_checkin("下班", "可能忘記打卡")
-                reply_message(line_id, f"{name}，已超過14小時，自動記錄為忘記下班卡。\n打卡時間：{now_str}\n{name}, quá 14 tiếng, hệ thống tự ghi nhận.")
+                reply_message(line_id, f"{name}，已超過14小時，自動記錄為忘記下班卡。\n🔴 時間：{now_str}\n{name}, quá 14 tiếng, hệ thống tự ghi nhận.")
             else:
                 insert_checkin("下班", "正常")
-                reply_message(line_id, f"{name}，下班打卡成功！\n打卡時間：{now_str}\n{name}, chấm công tan làm thành công!")
+                reply_message(line_id, f"{name}，下班打卡成功！\n🔴 時間：{now_str}\n{name}, chấm công tan làm thành công!")
 
     elif msg in ["確認", "Xác nhận"]:
         if state_row and state_row[1] == "awaiting_confirm_forgot_checkin":
