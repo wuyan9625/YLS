@@ -11,17 +11,24 @@ tz = pytz.timezone("Asia/Taipei")
 def receive_location():
     try:
         data = request.get_json()
-        line_id = data.get("line_id")
-        latitude = float(data.get("latitude"))
-        longitude = float(data.get("longitude"))
+        print("📥 OwnTracks 資料：", data)
 
-        # 嘗試取得 timestamp，若有傳入則解析為台灣時間，否則使用現在時間
-        if "timestamp" in data:
-            try:
-                utc_time = datetime.fromisoformat(data["timestamp"].replace("Z", "+00:00"))
-                local_time = utc_time.astimezone(tz)
-            except:
-                local_time = datetime.now(tz)
+        # 提取座標
+        latitude = float(data.get("lat"))
+        longitude = float(data.get("lon"))
+        topic = data.get("topic", "")
+
+        # 解析 topic：owntracks/{employee_id}/device
+        parts = topic.split("/")
+        if len(parts) < 2:
+            return jsonify({"status": "error", "message": "無效的 topic 格式"}), 400
+
+        employee_id = parts[1]  # 工號來自 topic 第二段
+
+        # 時間處理
+        if "tst" in data:
+            utc_time = datetime.utcfromtimestamp(data["tst"]).replace(tzinfo=pytz.utc)
+            local_time = utc_time.astimezone(tz)
         else:
             local_time = datetime.now(tz)
 
@@ -30,16 +37,16 @@ def receive_location():
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
 
-        # 查詢綁定使用者
-        cursor.execute("SELECT employee_id, name FROM users WHERE line_id=?", (line_id,))
-        row = cursor.fetchone()
+        # 查詢對應的 LINE 使用者
+        cursor.execute("SELECT line_id, name FROM users WHERE employee_id = ?", (employee_id,))
+        user_row = cursor.fetchone()
 
-        if not row:
-            return jsonify({"status": "error", "message": "找不到綁定的用戶"}), 404
+        if user_row:
+            line_id, name = user_row
+        else:
+            return jsonify({"status": "error", "message": "尚未綁定該工號，無法記錄"}), 403
 
-        employee_id, name = row
-
-        # 寫入定位紀錄
+        # 寫入定位資料
         cursor.execute('''
             INSERT INTO location_logs (line_id, employee_id, name, latitude, longitude, timestamp)
             VALUES (?, ?, ?, ?, ?, ?)
@@ -48,7 +55,8 @@ def receive_location():
         conn.commit()
         conn.close()
 
-        return jsonify({"status": "success", "message": "定位已記錄"})
+        return jsonify({"status": "success", "message": "✅ 定位已成功記錄"})
 
     except Exception as e:
+        print("🚨 Webhook 錯誤：", str(e))
         return jsonify({"status": "error", "message": str(e)}), 500
