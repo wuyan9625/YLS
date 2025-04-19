@@ -70,14 +70,19 @@ def process_message(line_id, msg):
                 reply_message(line_id, "工號是不是輸入錯誤？請輸入2~3位數字工號。\nMã số nhân viên không hợp lệ, vui lòng nhập lại bằng số từ 2-3 chữ số.")
             else:
                 temp_id = msg
-                cursor.execute("UPDATE user_states SET state=?, temp_employee_id=?, last_updated=? WHERE line_id=?",
-                               ("awaiting_name", temp_id, now_sql, line_id))
-                conn.commit()
-                reply_message(line_id, "請輸入您的姓名：\nVui lòng nhập họ tên của bạn:")
+                cursor.execute("SELECT * FROM users WHERE employee_id=?", (temp_id,))
+                exists = cursor.fetchone()
+                if exists:
+                    reply_message(line_id, "此工號已被其他人使用，請使用其他工號。\nMã số nhân viên này đã được sử dụng, vui lòng nhập lại.")
+                else:
+                    cursor.execute("UPDATE user_states SET state=?, temp_employee_id=?, last_updated=? WHERE line_id=?",
+                                   ("awaiting_name", temp_id, now_sql, line_id))
+                    conn.commit()
+                    reply_message(line_id, "請輸入您的姓名：\nVui lòng nhập họ tên của bạn:")
         elif state_row[1] == "awaiting_name":
             temp_name = msg
             temp_id = state_row[2]
-            cursor.execute("INSERT OR REPLACE INTO users VALUES (?, ?, ?, ?)",
+            cursor.execute("INSERT INTO users VALUES (?, ?, ?, ?)",
                            (line_id, temp_id, temp_name, now_sql))
             cursor.execute("DELETE FROM user_states WHERE line_id=?", (line_id,))
             conn.commit()
