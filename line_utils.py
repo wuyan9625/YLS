@@ -129,7 +129,7 @@ def process_message(line_id, msg):
     cursor.execute("SELECT latitude, longitude FROM location_logs WHERE line_id=? ORDER BY timestamp DESC LIMIT 1", (line_id,))
     last_location = cursor.fetchone()
     if not last_location:
-        reply_message(line_id, "📍 找不到您的定位資料，請開啟 GPS 並重新傳送定位資訊，否則無法打卡。\nKhông tìm thấy vị trí, vui lòng bật GPS và gửi lại vị trí để chấm công.")
+        reply_message(line_id, "📍 找不到您的定位資料，請開啟 GPS 並確認 OwnTracks 已設定成功。\nKhông tìm thấy vị trí, vui lòng bật GPS và đảm bảo đã cấu hình OwnTracks.")
         conn.close()
         return
 
