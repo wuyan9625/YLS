@@ -56,7 +56,8 @@ def process_message(line_id, msg):
 
     if not user:
         if not state_row:
-            cursor.execute("INSERT INTO user_states VALUES (?, ?, ?, ?)", (line_id, "awaiting_employee_id", None, now.strftime("%Y-%m-%d %H:%M:%S")))
+            cursor.execute("INSERT INTO user_states VALUES (?, ?, ?, ?)",
+                           (line_id, "awaiting_employee_id", None, now.strftime("%Y-%m-%d %H:%M:%S")))
             conn.commit()
             reply_message(line_id, "請輸入您的工號：\nVui lòng nhập mã số nhân viên của bạn:")
         elif state_row[1] == "awaiting_employee_id":
@@ -112,7 +113,9 @@ def process_message(line_id, msg):
         elif any(r[0] == "下班" for r in today_records):
             reply_message(line_id, f"{name}，你今天已經打過下班卡了。\n{name}, bạn đã chấm công tan làm hôm nay rồi.")
         else:
-            checkin_time = datetime.strptime([r[1] for r in today_records if r[0] == "上班"][0], "%Y-%m-%d %H:%M:%S")
+            checkin_time = tz.localize(datetime.strptime(
+                [r[1] for r in today_records if r[0] == "上班"][0], "%Y-%m-%d %H:%M:%S"
+            ))
             if now - checkin_time > timedelta(hours=14):
                 insert_checkin("下班", "可能忘記打卡")
                 reply_message(line_id, f"{name}，已超過14小時，自動記錄為忘記下班卡。\n打卡時間：{now_str}\n{name}, quá 14 tiếng, hệ thống tự ghi nhận.")
