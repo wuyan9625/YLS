@@ -1,31 +1,36 @@
-from flask import Flask, request, jsonify
-from line_utils import handle_event
-from db import init_db  # 初始化資料庫
-import os
+from flask import Flask
 from dotenv import load_dotenv
+from db import init_db
+from line_utils import handle_event
+from location_webhook import location_bp
+from admin_routes import admin_bp
+import os
+from flask import request, abort
 
-# 載入 .env 環境變數
+# 載入 .env 設定
 load_dotenv()
 
-app = Flask(__name__)
-
-# 環境變數
-CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
-CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
-
-# 初始化 SQLite 資料庫（建表）
+# 初始化資料庫
 init_db()
 
-@app.route("/line/webhook", methods=["POST"])
-def webhook():
-    signature = request.headers.get("X-Line-Signature")
-    body = request.get_data(as_text=True)
+# 建立 Flask App
+app = Flask(__name__)
+app.secret_key = os.getenv("SECRET_KEY", "default_secret_key")
+
+# LINE Webhook
+@app.route("/callback", methods=["POST"])
+def callback():
     try:
-        handle_event(body, signature, CHANNEL_SECRET, CHANNEL_ACCESS_TOKEN)
+        body = request.get_data(as_text=True)
+        handle_event(body)
+        return "OK"
     except Exception as e:
-        print(f"Webhook Error: {e}")
-        return "Error", 500
-    return "OK", 200
+        print("LINE webhook 處理失敗：", str(e))
+        abort(400)
+
+# Blueprint 路由
+app.register_blueprint(location_bp, url_prefix="/location")
+app.register_blueprint(admin_bp, url_prefix="/admin")
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    app.run(debug=True)
