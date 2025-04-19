@@ -56,7 +56,7 @@ def process_message(line_id, msg):
 
     if not user:
         if not state_row:
-            cursor.execute("INSERT INTO user_states VALUES (?, ?, ?, ?)", (line_id, "awaiting_employee_id", None, now))
+            cursor.execute("INSERT INTO user_states VALUES (?, ?, ?, ?)", (line_id, "awaiting_employee_id", None, now.strftime("%Y-%m-%d %H:%M:%S")))
             conn.commit()
             reply_message(line_id, "請輸入您的工號：\nVui lòng nhập mã số nhân viên của bạn:")
         elif state_row[1] == "awaiting_employee_id":
@@ -65,14 +65,14 @@ def process_message(line_id, msg):
             else:
                 temp_id = msg
                 cursor.execute("UPDATE user_states SET state=?, temp_employee_id=?, last_updated=? WHERE line_id=?",
-                               ("awaiting_name", temp_id, now, line_id))
+                               ("awaiting_name", temp_id, now.strftime("%Y-%m-%d %H:%M:%S"), line_id))
                 conn.commit()
                 reply_message(line_id, "請輸入您的姓名：\nVui lòng nhập họ tên của bạn:")
         elif state_row[1] == "awaiting_name":
             temp_name = msg
             temp_id = state_row[2]
             cursor.execute("INSERT OR REPLACE INTO users VALUES (?, ?, ?, ?)",
-                           (line_id, temp_id, temp_name, now))
+                           (line_id, temp_id, temp_name, now.strftime("%Y-%m-%d %H:%M:%S")))
             cursor.execute("DELETE FROM user_states WHERE line_id=?", (line_id,))
             conn.commit()
             reply_message(line_id, f"綁定成功！{temp_name} ({temp_id})\nLiên kết thành công!")
@@ -106,7 +106,7 @@ def process_message(line_id, msg):
     elif msg in ["下班", "Tan làm"]:
         if not any(r[0] == "上班" for r in today_records):
             cursor.execute("UPDATE user_states SET state=?, last_updated=? WHERE line_id=?",
-                           ("awaiting_confirm_forgot_checkin", now, line_id))
+                           ("awaiting_confirm_forgot_checkin", now.strftime("%Y-%m-%d %H:%M:%S"), line_id))
             conn.commit()
             reply_message(line_id, "查無上班記錄，是否忘記打上班卡？\nBạn quên chấm công đi làm? Gõ '確認' để補打下班卡.")
         elif any(r[0] == "下班" for r in today_records):
