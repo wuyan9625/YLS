@@ -3,13 +3,14 @@ import sqlite3
 import csv
 import io
 from datetime import datetime
+import pytz
 
 admin_bp = Blueprint("admin", __name__)
 DB_PATH = 'checkin.db'
 
-# 預設帳密（可自行改為更安全設計）
 ADMIN_USERNAME = 'admin'
 ADMIN_PASSWORD = 'admin'
+tz = pytz.timezone("Asia/Taipei")
 
 @admin_bp.route("/login", methods=["GET", "POST"])
 def login():
@@ -63,24 +64,23 @@ def export_checkins_csv():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT employee_id, name, DATE(timestamp), 
-            MAX(CASE WHEN check_type='上班' THEN TIME(timestamp) END),
-            MAX(CASE WHEN check_type='下班' THEN TIME(timestamp) END),
-            MAX(CASE WHEN check_type='上班' THEN result END),
-            MAX(CASE WHEN check_type='下班' THEN result END)
+        SELECT employee_id, name, timestamp, check_type, result
         FROM checkins
         WHERE DATE(timestamp) BETWEEN ? AND ?
-        GROUP BY employee_id, name, DATE(timestamp)
-        ORDER BY employee_id, DATE(timestamp)
+        ORDER BY employee_id, timestamp
     """, (start_date, end_date))
     records = cursor.fetchall()
     conn.close()
 
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["工號", "姓名", "日期", "上班時間", "下班時間", "上班狀態", "下班狀態"])
-    for row in records:
-        writer.writerow(row)
+    writer.writerow(["工號", "姓名", "日期", "時間", "類型", "狀態"])
+
+    for emp_id, name, ts, check_type, result in records:
+        # 時區轉換
+        ts_dt = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S")
+        local_ts = ts_dt.replace(tzinfo=pytz.utc).astimezone(tz)
+        writer.writerow([emp_id, name, local_ts.date(), local_ts.strftime("%H:%M"), check_type, result])
 
     output.seek(0)
     return send_file(io.BytesIO(output.getvalue().encode("utf-8")),
@@ -107,14 +107,17 @@ def export_location_logs_csv():
         WHERE DATE(timestamp) BETWEEN ? AND ?
         ORDER BY employee_id, timestamp
     """, (start_date, end_date))
-    logs = cursor.fetchall()
+    records = cursor.fetchall()
     conn.close()
 
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["工號", "姓名", "時間", "緯度", "經度"])
-    for row in logs:
-        writer.writerow(row)
+    writer.writerow(["工號", "姓名", "日期", "時間", "緯度", "經度"])
+
+    for emp_id, name, ts, lat, lng in records:
+        ts_dt = datetime.strptime(ts, "%Y-%m-%d %H:%M:%S")
+        local_ts = ts_dt.replace(tzinfo=pytz.utc).astimezone(tz)
+        writer.writerow([emp_id, name, local_ts.date(), local_ts.strftime("%H:%M"), lat, lng])
 
     output.seek(0)
     return send_file(io.BytesIO(output.getvalue().encode("utf-8")),
