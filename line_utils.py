@@ -107,6 +107,8 @@ def handle_event(body):
 
 # 處理用戶的訊息
 def process_message(line_id, msg):
+    print(f"收到的訊息: {msg}")  # 用於調試輸出收到的訊息
+
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM users WHERE line_id=?", (line_id,))
@@ -180,6 +182,16 @@ def process_message(line_id, msg):
         conn.close()
         return
 
+    # 檢查是否為 "ios" 或 "教程"
+    if msg.lower() == "ios" or msg == "教程":
+        image_url = "https://yls-checkin-bot.onrender.com/static/tutorial/owntracks_ios.png"
+        print("發送圖文教學到 LINE")  # 加入調試輸出
+        push_image(line_id, image_url)
+        reply_message(line_id, "📄 圖文說明已送出，請依照指示設定 OwnTracks。\nĐã gửi hướng dẫn bằng hình ảnh, vui lòng làm theo để cấu hình OwnTracks.")
+        conn.close()
+        return
+
+    # 打卡處理
     if msg in ["上班", "Đi làm"]:
         if any(r[0] == "上班" for r in today_records):
             reply_message(line_id, f"{name}，你今天已經打過上班卡了。\n{name}, bạn đã chấm công đi làm hôm nay rồi.")
@@ -203,27 +215,6 @@ def process_message(line_id, msg):
             else:
                 insert_checkin("下班", "正常")
                 reply_message(line_id, f"{name}，下班打卡成功！\n🔴 時間：{now_str}\n{name}, chấm công tan làm thành công!")
-    elif msg in ["確認", "Xác nhận"]:
-        if state_row and state_row[1] == "awaiting_confirm_forgot_checkin":
-            insert_checkin("上班", "忘記打卡")
-            insert_checkin("下班", "補打卡")
-            cursor.execute("DELETE FROM user_states WHERE line_id=?", (line_id,))
-            conn.commit()
-            reply_message(line_id, f"{name}，已補記錄上下班。\n{name}, đã xác nhận quên chấm công và ghi nhận lại.")
-        else:
-            reply_message(line_id, "目前無需要確認的打卡補記錄。\nKhông có yêu cầu xác nhận nào.")
-    elif msg.lower() == "android":
-        filename = f"{employee_id}.png"
-        buffer = generate_android_qr_image(employee_id)
-        save_qr_image(buffer, filename)
-        qr_url = f"https://yls-checkin-bot.onrender.com/static/qr/{filename}"
-        push_image(line_id, qr_url)
-        reply_message(line_id, "✅ 請打開 OwnTracks 並掃描上方 QR Code 完成設定。\nVui lòng mở OwnTracks và quét mã QR bên trên để hoàn tất thiết lập.")
-    elif msg.lower() == "ios" or msg == "教程":
-        image_url = "https://yls-checkin-bot.onrender.com/static/tutorial/owntracks_ios.png"
-        push_image(line_id, image_url)
-        reply_message(line_id, "📄 圖文說明已送出，請依照指示設定 OwnTracks。\nĐã gửi hướng dẫn bằng hình ảnh, vui lòng làm theo để cấu hình OwnTracks.")
-    else:
-        reply_message(line_id, "請輸入「上班」或「下班」以打卡。\nVui lòng nhập 'Đi làm' hoặc 'Tan làm' để chấm công.")
 
     conn.close()
+
