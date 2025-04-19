@@ -25,8 +25,9 @@
     form {
       margin: 20px 0;
     }
-    input {
+    input, select {
       padding: 5px;
+      margin-right: 10px;
     }
     button {
       padding: 5px 10px;
@@ -38,7 +39,6 @@
   </style>
 </head>
 <body>
-  //更新
   <h2>歡迎回來，管理員！</h2>
   <a href="/admin/logout">登出</a>
 
@@ -57,15 +57,35 @@
 
   <h3>下載打卡紀錄</h3>
   <form method="POST" action="/admin/export_checkins">
-    <label>請輸入日期區間（格式：YYYY-MM-DD - YYYY-MM-DD）：</label>
-    <input name="daterange" placeholder="2025-04-01 - 2025-04-19" required>
+    <label>選擇日期：</label>
+    <select name="daterange">
+      {% for d in checkin_dates %}
+      <option value="{{ d }} - {{ d }}">{{ d }}</option>
+      {% endfor %}
+    </select>
+    <label>或選擇月份：</label>
+    <select name="daterange">
+      {% for m in checkin_months %}
+      <option value="{{ m }}">{{ m }}</option>
+      {% endfor %}
+    </select>
     <button type="submit">下載打卡 CSV</button>
   </form>
 
   <h3>下載定位紀錄</h3>
   <form method="POST" action="/admin/export_locations">
-    <label>請輸入日期區間（格式：YYYY-MM-DD - YYYY-MM-DD）：</label>
-    <input name="daterange" placeholder="2025-04-01 - 2025-04-19" required>
+    <label>選擇日期：</label>
+    <select name="daterange">
+      {% for d in location_dates %}
+      <option value="{{ d }} - {{ d }}">{{ d }}</option>
+      {% endfor %}
+    </select>
+    <label>或選擇月份：</label>
+    <select name="daterange">
+      {% for m in location_months %}
+      <option value="{{ m }}">{{ m }}</option>
+      {% endfor %}
+    </select>
     <button type="submit">下載定位 CSV</button>
   </form>
 </body>
