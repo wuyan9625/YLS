@@ -13,12 +13,10 @@ DB_PATH = 'checkin.db'
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 tz = pytz.timezone("Asia/Taipei")
 
-# 台北車站為範例，可加入多個打卡點
 ALLOWED_LOCATIONS = [
     (25.0478, 121.5319),
 ]
 
-# 計算兩點間距離（公里）
 def is_within_allowed_location(lat, lng, radius_km=0.05):
     for allowed_lat, allowed_lng in ALLOWED_LOCATIONS:
         dlat = radians(lat - allowed_lat)
@@ -30,7 +28,6 @@ def is_within_allowed_location(lat, lng, radius_km=0.05):
             return True
     return False
 
-# 發送訊息給 LINE 使用者
 def reply_message(line_id, text):
     headers = {
         "Content-Type": "application/json",
@@ -53,7 +50,25 @@ def reply_message(line_id, text):
     if response.status_code != 200:
         print("LINE 傳送失敗：", response.status_code, response.text)
 
-# 產生 Android QR Code 設定圖片
+def push_image(line_id, image_url):
+    headers = {
+        "Authorization": f"Bearer {LINE_CHANNEL_ACCESS_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    body = {
+        "to": line_id,
+        "messages": [
+            {
+                "type": "image",
+                "originalContentUrl": image_url,
+                "previewImageUrl": image_url
+            }
+        ]
+    }
+    res = requests.post("https://api.line.me/v2/bot/message/push", headers=headers, json=body)
+    if res.status_code != 200:
+        print("圖片傳送失敗：", res.status_code, res.text)
+
 def generate_android_qr_image(employee_id: str) -> BytesIO:
     config = {
         "_type": "configuration",
@@ -70,7 +85,11 @@ def generate_android_qr_image(employee_id: str) -> BytesIO:
     buffer.seek(0)
     return buffer
 
-# 處理 LINE Webhook 傳入事件
+def save_qr_image(buffer: BytesIO, filename: str):
+    path = f"static/qr/{filename}"
+    with open(path, "wb") as f:
+        f.write(buffer.getvalue())
+
 def handle_event(body):
     data = json.loads(body)
     events = data.get("events", [])
@@ -81,60 +100,54 @@ def handle_event(body):
         msg = event["message"]["text"].strip()
         process_message(line_id, msg)
 
-# 主邏輯：處理打卡與綁定流程
 def process_message(line_id, msg):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-
     cursor.execute("SELECT * FROM users WHERE line_id=?", (line_id,))
     user = cursor.fetchone()
-
     cursor.execute("SELECT * FROM user_states WHERE line_id=?", (line_id,))
     state_row = cursor.fetchone()
-
     now = datetime.now(tz)
     now_str = now.strftime("%Y-%m-%d %H:%M")
     now_sql = now.strftime("%Y-%m-%d %H:%M:%S")
 
     if not user:
         if msg in ["上班", "下班", "Đi làm", "Tan làm"]:
-            reply_message(line_id, "請先綁定帳號再打卡\nVui lòng liên kết tài khoản trước khi chấm công.")
+            reply_message(line_id, "請先綁定帳號再打卡。\nVui lòng liên kết tài khoản trước khi chấm công.")
             conn.close()
             return
-
         if not state_row:
             cursor.execute("INSERT INTO user_states VALUES (?, ?, ?, ?)", (line_id, "awaiting_employee_id", None, now_sql))
             conn.commit()
-            reply_message(line_id, "請輸入您的工號:\nVui lòng nhập mã số nhân viên của bạn:")
+            reply_message(line_id, "請輸入您的工號：\nVui lòng nhập mã số nhân viên của bạn:")
         elif state_row[1] == "awaiting_employee_id":
             if not msg.isdigit() or not (2 <= len(msg) <= 3):
-                reply_message(line_id, "工號是不是輸入錯誤？請輸入2~3位數字工號\nMã nhân viên không hợp lệ, vui lòng nhập lại")
+                reply_message(line_id, "工號格式錯誤，請輸入 2~3 位數數字。\nMã số nhân viên không hợp lệ, vui lòng nhập lại.")
             else:
                 temp_id = msg
                 cursor.execute("SELECT * FROM users WHERE employee_id=?", (temp_id,))
                 exists = cursor.fetchone()
                 if exists:
-                    reply_message(line_id, "此工號已被使用\nMã nhân viên đã được sử dụng")
+                    reply_message(line_id, "此工號已被其他人使用，請重新輸入。\nMã số nhân viên này đã được sử dụng, vui lòng nhập lại.")
                 else:
                     cursor.execute("UPDATE user_states SET state=?, temp_employee_id=?, last_updated=? WHERE line_id=?",
                                    ("awaiting_name", temp_id, now_sql, line_id))
                     conn.commit()
-                    reply_message(line_id, "請輸入您的姓名:\nVui lòng nhập họ tên của bạn:")
+                    reply_message(line_id, "請輸入您的姓名：\nVui lòng nhập họ tên của bạn:")
         elif state_row[1] == "awaiting_name":
             temp_name = msg
             temp_id = state_row[2]
-            cursor.execute("INSERT INTO users VALUES (?, ?, ?, ?)",
-                           (line_id, temp_id, temp_name, now_sql))
+            cursor.execute("INSERT INTO users VALUES (?, ?, ?, ?)", (line_id, temp_id, temp_name, now_sql))
             cursor.execute("DELETE FROM user_states WHERE line_id=?", (line_id,))
             conn.commit()
             reply_message(line_id, f"綁定成功！{temp_name} ({temp_id})\nLiên kết thành công!")
-            # TODO: 問他是 iOS 還是 Android 並發送相應說明/QR
+            reply_message(line_id,
+                "請問您使用的是哪一種手機？\nBạn đang sử dụng loại điện thoại nào？\n\n輸入 iOS → 查看圖文教學\nNhập iOS → Xem hướng dẫn\n\n輸入 Android → 取得 QR 自動設定\nNhập Android → Lấy mã QR để cài đặt tự động")
         conn.close()
         return
 
     employee_id, name = user[1], user[2]
     today = now.strftime("%Y-%m-%d")
-
     cursor.execute('''
         SELECT check_type, timestamp FROM checkins
         WHERE employee_id=? AND DATE(timestamp)=?
@@ -152,13 +165,12 @@ def process_message(line_id, msg):
     cursor.execute("SELECT latitude, longitude FROM location_logs WHERE line_id=? ORDER BY timestamp DESC LIMIT 1", (line_id,))
     last_location = cursor.fetchone()
     if not last_location:
-        reply_message(line_id, "📍 找不到您的定位資料，請開啟 GPS 並確認 OwnTracks 已設定成功\nKhông tìm thấy vị trí, vui lòng bật GPS và đảm bảo OwnTracks đã cài đặt.")
+        reply_message(line_id, "📍 找不到您的定位資料，請開啟 GPS 並確認 OwnTracks 已設定成功。\nKhông tìm thấy vị trí, vui lòng bật GPS và đảm bảo đã cấu hình OwnTracks.")
         conn.close()
         return
-
     lat, lng = last_location
     if not is_within_allowed_location(lat, lng):
-        reply_message(line_id, "📍 您不在允許打卡範圍內\nBạn không ở khu vực chấm công cho phép.")
+        reply_message(line_id, "📍 你不在允許的打卡範圍內，無法打卡。\nBạn không ở khu vực chấm công cho phép.")
         conn.close()
         return
 
@@ -168,13 +180,12 @@ def process_message(line_id, msg):
         else:
             insert_checkin("上班", "正常")
             reply_message(line_id, f"{name}，上班打卡成功！\n🔴 時間：{now_str}\n{name}, chấm công đi làm thành công!")
-
     elif msg in ["下班", "Tan làm"]:
         if not any(r[0] == "上班" for r in today_records):
             cursor.execute("UPDATE user_states SET state=?, last_updated=? WHERE line_id=?",
                            ("awaiting_confirm_forgot_checkin", now_sql, line_id))
             conn.commit()
-            reply_message(line_id, "查無上班記錄，是否忘記打上班卡？\nBạn quên chấm công đi làm? Gõ '確認' để bổ sung châm công tan làm.")
+            reply_message(line_id, "查無上班記錄，是否忘記打上班卡？\nBạn quên chấm công đi làm? Gõ '確認' để補打下班卡.")
         elif any(r[0] == "下班" for r in today_records):
             reply_message(line_id, f"{name}，你今天已經打過下班卡了。\n{name}, bạn đã chấm công tan làm hôm nay rồi.")
         else:
@@ -186,7 +197,6 @@ def process_message(line_id, msg):
             else:
                 insert_checkin("下班", "正常")
                 reply_message(line_id, f"{name}，下班打卡成功！\n🔴 時間：{now_str}\n{name}, chấm công tan làm thành công!")
-
     elif msg in ["確認", "Xác nhận"]:
         if state_row and state_row[1] == "awaiting_confirm_forgot_checkin":
             insert_checkin("上班", "忘記打卡")
@@ -195,9 +205,17 @@ def process_message(line_id, msg):
             conn.commit()
             reply_message(line_id, f"{name}，已補記錄上下班。\n{name}, đã xác nhận quên chấm công và ghi nhận lại.")
         else:
-            reply_message(line_id, "目前無需要確認的打卡補記錄\nKhông có yêu cầu xác nhận nào.")
-
+            reply_message(line_id, "目前無需要確認的打卡補記錄。\nKhông có yêu cầu xác nhận nào.")
+    elif msg.lower() == "android":
+        filename = f"{employee_id}.png"
+        buffer = generate_android_qr_image(employee_id)
+        save_qr_image(buffer, filename)
+        qr_url = f"https://yls-checkin-bot.onrender.com/static/qr/{filename}"
+        push_image(line_id, qr_url)
+        reply_message(line_id, "✅ 請打開 OwnTracks 並掃描上方 QR Code 完成設定。\nVui lòng mở OwnTracks và quét mã QR bên trên để hoàn tất thiết lập.")
+    elif msg.lower() == "ios":
+        reply_message(line_id, "📄 iOS 使用者請輸入「教程」查看圖文設定說明。\nNgười dùng iOS hãy nhập '教程' để xem hướng dẫn.")
     else:
-        reply_message(line_id, "請輸入「上班」或「下班」以打卡\nVui lòng nhập 'Di làm' hoặc 'Tan làm' để chấm công.")
+        reply_message(line_id, "請輸入「上班」或「下班」以打卡。\nVui lòng nhập 'Đi làm' hoặc 'Tan làm' để chấm công.")
 
     conn.close()
