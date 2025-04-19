@@ -3,18 +3,12 @@ import sqlite3
 from datetime import datetime, timedelta
 import os
 import requests
+import pytz
 
 DB_PATH = 'checkin.db'
-
-# 讀取 LINE Token
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
+tz = pytz.timezone("Asia/Taipei")
 
-# 允許的打卡地點（未使用，可擴充）
-ALLOWED_LOCATIONS = [
-    (25.0330, 121.5654),
-]
-
-# 發送訊息給使用者
 def reply_message(line_id, text):
     headers = {
         "Content-Type": "application/json",
@@ -37,7 +31,6 @@ def reply_message(line_id, text):
     if response.status_code != 200:
         print("LINE 傳送失敗：", response.status_code, response.text)
 
-# 處理 Webhook 資料
 def handle_event(body):
     data = json.loads(body)
     events = data.get("events", [])
@@ -48,7 +41,6 @@ def handle_event(body):
         msg = event["message"]["text"].strip()
         process_message(line_id, msg)
 
-# 主邏輯
 def process_message(line_id, msg):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -59,9 +51,9 @@ def process_message(line_id, msg):
     cursor.execute("SELECT * FROM user_states WHERE line_id=?", (line_id,))
     state_row = cursor.fetchone()
 
-    now = datetime.now()
+    now = datetime.now(tz)
+    now_str = now.strftime("%Y-%m-%d %H:%M")
 
-    # 未綁定流程
     if not user:
         if not state_row:
             cursor.execute("INSERT INTO user_states VALUES (?, ?, ?, ?)", (line_id, "awaiting_employee_id", None, now))
@@ -76,7 +68,6 @@ def process_message(line_id, msg):
                                ("awaiting_name", temp_id, now, line_id))
                 conn.commit()
                 reply_message(line_id, "請輸入您的姓名：\nVui lòng nhập họ tên của bạn:")
-
         elif state_row[1] == "awaiting_name":
             temp_name = msg
             temp_id = state_row[2]
@@ -88,7 +79,6 @@ def process_message(line_id, msg):
         conn.close()
         return
 
-    # 已綁定 → 打卡邏輯
     employee_id, name = user[1], user[2]
     today = now.strftime("%Y-%m-%d")
 
@@ -111,7 +101,7 @@ def process_message(line_id, msg):
             reply_message(line_id, f"{name}，你今天已經打過上班卡了。\n{name}, bạn đã chấm công đi làm hôm nay rồi.")
         else:
             insert_checkin("上班", "正常")
-            reply_message(line_id, f"{name}，上班打卡成功！\n{name}, chấm công đi làm thành công!")
+            reply_message(line_id, f"{name}，上班打卡成功！\n打卡時間：{now_str}\n{name}, chấm công đi làm thành công!")
 
     elif msg in ["下班", "Tan làm"]:
         if not any(r[0] == "上班" for r in today_records):
@@ -125,10 +115,10 @@ def process_message(line_id, msg):
             checkin_time = datetime.strptime([r[1] for r in today_records if r[0] == "上班"][0], "%Y-%m-%d %H:%M:%S")
             if now - checkin_time > timedelta(hours=14):
                 insert_checkin("下班", "可能忘記打卡")
-                reply_message(line_id, f"{name}，已超過14小時，自動記錄為忘記下班卡。\n{name}, quá 14 tiếng, hệ thống tự ghi nhận.")
+                reply_message(line_id, f"{name}，已超過14小時，自動記錄為忘記下班卡。\n打卡時間：{now_str}\n{name}, quá 14 tiếng, hệ thống tự ghi nhận.")
             else:
                 insert_checkin("下班", "正常")
-                reply_message(line_id, f"{name}，下班打卡成功！\n{name}, chấm công tan làm thành công!")
+                reply_message(line_id, f"{name}，下班打卡成功！\n打卡時間：{now_str}\n{name}, chấm công tan làm thành công!")
 
     elif msg in ["確認", "Xác nhận"]:
         if state_row and state_row[1] == "awaiting_confirm_forgot_checkin":
