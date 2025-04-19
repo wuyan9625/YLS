@@ -10,6 +10,9 @@ from flask import request, abort
 # 載入 .env 設定
 load_dotenv()
 
+# ✅ 確保 static/qr 資料夾存在
+os.makedirs("static/qr", exist_ok=True)
+
 # 初始化資料庫
 init_db()
 
