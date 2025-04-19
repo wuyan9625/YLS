@@ -119,6 +119,7 @@ def process_message(line_id, msg):
     now_str = now.strftime("%Y-%m-%d %H:%M")
     now_sql = now.strftime("%Y-%m-%d %H:%M:%S")
 
+    # 先檢查用戶是否綁定
     if not user:
         if msg in ["上班", "下班", "Đi làm", "Tan làm"]:
             reply_message(line_id, "請先綁定帳號再打卡。\nVui lòng liên kết tài khoản trước khi chấm công.")
@@ -154,7 +155,7 @@ def process_message(line_id, msg):
         conn.close()
         return
 
-    # 如果已經綁定了帳號，檢查上班或下班
+    # 用戶已經綁定，處理打卡
     employee_id, name = user[1], user[2]
     today = now.strftime("%Y-%m-%d")
     cursor.execute(''' 
@@ -173,21 +174,26 @@ def process_message(line_id, msg):
 
     cursor.execute("SELECT latitude, longitude FROM location_logs WHERE line_id=? ORDER BY timestamp DESC LIMIT 1", (line_id,))
     last_location = cursor.fetchone()
-
-    # 先檢查定位資料是否存在
     if not last_location:
         reply_message(line_id, "📍 找不到您的定位資料，請開啟 GPS 並確認 OwnTracks 已設定成功。\nKhông tìm thấy vị trí, vui lòng bật GPS và đảm bảo đã cấu hình OwnTracks.")
         conn.close()
         return
-
     lat, lng = last_location
-    # 檢查定位是否在允許範圍內
     if not is_within_allowed_location(lat, lng):
         reply_message(line_id, "📍 你不在允許的打卡範圍內，無法打卡。\nBạn không ở khu vực chấm công cho phép.")
         conn.close()
         return
 
-    # 接著才是打卡處理
+    # 先判斷是否是要求教程
+    if msg.lower() == "ios" or msg == "教程":
+        image_url = "https://yls-checkin-bot.onrender.com/static/tutorial/owntracks_ios.png"
+        print("發送圖文教學到 LINE")  # 用於調試確認
+        push_image(line_id, image_url)
+        reply_message(line_id, "📄 圖文說明已送出，請依照指示設定 OwnTracks。\nĐã gửi hướng dẫn bằng hình ảnh, vui lòng làm theo để cấu hình OwnTracks.")
+        conn.close()
+        return
+
+    # 若是打卡處理
     if msg in ["上班", "Đi làm"]:
         if any(r[0] == "上班" for r in today_records):
             reply_message(line_id, f"{name}，你今天已經打過上班卡了。\n{name}, bạn đã chấm công đi làm hôm nay rồi.")
