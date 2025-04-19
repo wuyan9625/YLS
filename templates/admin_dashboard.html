@@ -48,7 +48,7 @@
     <tr>
       <td>{{ emp[0] }}</td>
       <td>{{ emp[1] }}</td>
-      <td>{{ emp[2] }}</td>
+      <td>{{ emp[2].split('.')[0] }}（台灣時間）</td>
       <td><a href="/admin/delete_user/{{ emp[0] }}" class="delete" onclick="return confirm('確認刪除此員工綁定？')">刪除</a></td>
     </tr>
     {% endfor %}
