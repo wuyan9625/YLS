@@ -149,3 +149,16 @@ def export_location_logs_csv():
                      mimetype='text/csv',
                      as_attachment=True,
                      download_name=f"定位紀錄_{start_date}_to_{end_date}.csv")
+@admin_bp.route("/clear_data")
+def clear_data():
+    if not session.get("admin"):
+        return redirect("/admin/login")
+
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM checkins;")
+    cursor.execute("DELETE FROM location_logs;")
+    conn.commit()
+    conn.close()
+
+    return "✅ 所有打卡與定位紀錄已清空"
