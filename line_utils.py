@@ -68,11 +68,15 @@ def process_message(line_id, msg):
             conn.commit()
             reply_message(line_id, "請輸入您的工號：\nVui lòng nhập mã số nhân viên của bạn:")
         elif state_row[1] == "awaiting_employee_id":
-            temp_id = msg
-            cursor.execute("UPDATE user_states SET state=?, temp_employee_id=?, last_updated=? WHERE line_id=?",
-                           ("awaiting_name", temp_id, now, line_id))
-            conn.commit()
-            reply_message(line_id, "請輸入您的姓名：\nVui lòng nhập họ tên của bạn:")
+            if not msg.isdigit():
+                reply_message(line_id, "工號是不是輸入錯誤？請輸入純數字工號。\nMã số nhân viên không hợp lệ, vui lòng nhập lại bằng số.")
+            else:
+                temp_id = msg
+                cursor.execute("UPDATE user_states SET state=?, temp_employee_id=?, last_updated=? WHERE line_id=?",
+                               ("awaiting_name", temp_id, now, line_id))
+                conn.commit()
+                reply_message(line_id, "請輸入您的姓名：\nVui lòng nhập họ tên của bạn:")
+
         elif state_row[1] == "awaiting_name":
             temp_name = msg
             temp_id = state_row[2]
