@@ -213,8 +213,10 @@ def process_message(line_id, msg):
         qr_url = f"https://yls-checkin-bot.onrender.com/static/qr/{filename}"
         push_image(line_id, qr_url)
         reply_message(line_id, "✅ 請打開 OwnTracks 並掃描上方 QR Code 完成設定。\nVui lòng mở OwnTracks và quét mã QR bên trên để hoàn tất thiết lập.")
-    elif msg.lower() == "ios":
-        reply_message(line_id, "📄 iOS 使用者請輸入「教程」查看圖文設定說明。\nNgười dùng iOS hãy nhập '教程' để xem hướng dẫn.")
+    elif msg.lower() == "ios" or msg == "教程":
+        image_url = "https://yls-checkin-bot.onrender.com/static/tutorial/owntracks_ios.png"
+        push_image(line_id, image_url)
+        reply_message(line_id, "📄 圖文說明已送出，請依照指示設定 OwnTracks。\nĐã gửi hướng dẫn bằng hình ảnh, vui lòng làm theo để cấu hình OwnTracks.")
     else:
         reply_message(line_id, "請輸入「上班」或「下班」以打卡。\nVui lòng nhập 'Đi làm' hoặc 'Tan làm' để chấm công.")
 
