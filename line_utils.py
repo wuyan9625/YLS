@@ -4,10 +4,28 @@ from datetime import datetime, timedelta
 import os
 import requests
 import pytz
+from math import radians, sin, cos, sqrt, atan2
 
 DB_PATH = 'checkin.db'
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 tz = pytz.timezone("Asia/Taipei")
+
+# 台北車站為範例，可加入多個打卡點
+ALLOWED_LOCATIONS = [
+    (25.0478, 121.5319),  # 可自訂打卡點
+]
+
+# 計算兩點間距離（公里）
+def is_within_allowed_location(lat, lng, radius_km=0.05):
+    for allowed_lat, allowed_lng in ALLOWED_LOCATIONS:
+        dlat = radians(lat - allowed_lat)
+        dlng = radians(lng - allowed_lng)
+        a = sin(dlat/2)**2 + cos(radians(lat)) * cos(radians(allowed_lat)) * sin(dlng/2)**2
+        c = 2 * atan2(sqrt(a), sqrt(1 - a))
+        distance = 6371 * c
+        if distance <= radius_km:
+            return True
+    return False
 
 def reply_message(line_id, text):
     headers = {
@@ -106,6 +124,20 @@ def process_message(line_id, msg):
             VALUES (?, ?, ?, ?, ?)
         ''', (employee_id, name, check_type, now_sql, result))
         conn.commit()
+
+    # 新增：取得最後定位紀錄，檢查距離
+    cursor.execute("SELECT latitude, longitude FROM location_logs WHERE line_id=? ORDER BY timestamp DESC LIMIT 1", (line_id,))
+    last_location = cursor.fetchone()
+    if not last_location:
+        reply_message(line_id, "📍 找不到您的定位資料，請開啟 GPS 並重新傳送定位資訊，否則無法打卡。\nKhông tìm thấy vị trí, vui lòng bật GPS và gửi lại vị trí để chấm công.")
+        conn.close()
+        return
+
+    lat, lng = last_location
+    if not is_within_allowed_location(lat, lng):
+        reply_message(line_id, "📍 你不在允許的打卡範圍內，無法打卡。\nBạn không ở khu vực chấm công cho phép.")
+        conn.close()
+        return
 
     if msg in ["上班", "Đi làm"]:
         if any(r[0] == "上班" for r in today_records):
