@@ -16,6 +16,7 @@ ALLOWED_LOCATIONS = [
     (25.0478, 121.5319),  # 可自訂打卡點
 ]
 
+# 計算兩點間距離（公里）
 def is_within_allowed_location(lat, lng, radius_km=0.05):
     for allowed_lat, allowed_lng in ALLOWED_LOCATIONS:
         dlat = radians(lat - allowed_lat)
@@ -27,6 +28,7 @@ def is_within_allowed_location(lat, lng, radius_km=0.05):
             return True
     return False
 
+# 發送訊息到 LINE
 def reply_message(line_id, text):
     headers = {
         "Content-Type": "application/json",
@@ -49,6 +51,7 @@ def reply_message(line_id, text):
     if response.status_code != 200:
         print("LINE 傳送失敗：", response.status_code, response.text)
 
+# 發送圖片到 LINE
 def push_image(line_id, image_url):
     headers = {
         "Authorization": f"Bearer {LINE_CHANNEL_ACCESS_TOKEN}",
@@ -68,6 +71,7 @@ def push_image(line_id, image_url):
     if res.status_code != 200:
         print("圖片傳送失敗：", res.status_code, res.text)
 
+# 生成 Android QR 代碼
 def generate_android_qr_image(employee_id: str) -> BytesIO:
     config = {
         "_type": "configuration",
@@ -84,11 +88,13 @@ def generate_android_qr_image(employee_id: str) -> BytesIO:
     buffer.seek(0)
     return buffer
 
+# 儲存 QR 圖片
 def save_qr_image(buffer: BytesIO, filename: str):
     path = f"static/qr/{filename}"
     with open(path, "wb") as f:
         f.write(buffer.getvalue())
 
+# 處理 LINE 發送的訊息
 def handle_event(body):
     data = json.loads(body)
     events = data.get("events", [])
@@ -99,6 +105,7 @@ def handle_event(body):
         msg = event["message"]["text"].strip()
         process_message(line_id, msg)
 
+# 處理用戶的訊息
 def process_message(line_id, msg):
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
