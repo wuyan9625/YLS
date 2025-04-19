@@ -1,4 +1,3 @@
-# line_utils.py
 import json
 import sqlite3
 from datetime import datetime, timedelta
@@ -14,7 +13,7 @@ LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 tz = pytz.timezone("Asia/Taipei")
 
 ALLOWED_LOCATIONS = [
-    (25.0478, 121.5319),
+    (25.0478, 121.5319),  # 可自訂打卡點
 ]
 
 def is_within_allowed_location(lat, lng, radius_km=0.05):
@@ -23,7 +22,7 @@ def is_within_allowed_location(lat, lng, radius_km=0.05):
         dlng = radians(lng - allowed_lng)
         a = sin(dlat/2)**2 + cos(radians(lat)) * cos(radians(allowed_lat)) * sin(dlng/2)**2
         c = 2 * atan2(sqrt(a), sqrt(1 - a))
-        distance = 6371 * c
+        distance = 6371 * c  # 地球半徑
         if distance <= radius_km:
             return True
     return False
@@ -148,16 +147,16 @@ def process_message(line_id, msg):
 
     employee_id, name = user[1], user[2]
     today = now.strftime("%Y-%m-%d")
-    cursor.execute('''
-        SELECT check_type, timestamp FROM checkins
-        WHERE employee_id=? AND DATE(timestamp)=?
+    cursor.execute(''' 
+        SELECT check_type, timestamp FROM checkins 
+        WHERE employee_id=? AND DATE(timestamp)=? 
         ORDER BY timestamp ASC
     ''', (employee_id, today))
     today_records = cursor.fetchall()
 
     def insert_checkin(check_type, result):
-        cursor.execute('''
-            INSERT INTO checkins (employee_id, name, check_type, timestamp, result)
+        cursor.execute(''' 
+            INSERT INTO checkins (employee_id, name, check_type, timestamp, result) 
             VALUES (?, ?, ?, ?, ?)
         ''', (employee_id, name, check_type, now_sql, result))
         conn.commit()
@@ -182,10 +181,10 @@ def process_message(line_id, msg):
             reply_message(line_id, f"{name}，上班打卡成功！\n🔴 時間：{now_str}\n{name}, chấm công đi làm thành công!")
     elif msg in ["下班", "Tan làm"]:
         if not any(r[0] == "上班" for r in today_records):
-            cursor.execute("UPDATE user_states SET state=?, last_updated=? WHERE line_id=?",
+            cursor.execute("UPDATE user_states SET state=?, last_updated=? WHERE line_id=?", 
                            ("awaiting_confirm_forgot_checkin", now_sql, line_id))
             conn.commit()
-            reply_message(line_id, "查無上班記錄，是否忘記打上班卡？\nBạn quên chấm công đi làm? Gõ '確認' để補打下班卡.")
+            reply_message(line_id, "查無上班記錄，是否忘記打上班卡？\nBạn quên chấm công đi làm? Gõ '確認' để补打下班卡.")
         elif any(r[0] == "下班" for r in today_records):
             reply_message(line_id, f"{name}，你今天已經打過下班卡了。\n{name}, bạn đã chấm công tan làm hôm nay rồi.")
         else:
