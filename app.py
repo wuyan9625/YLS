@@ -33,4 +33,4 @@ app.register_blueprint(location_bp, url_prefix="/location")
 app.register_blueprint(admin_bp, url_prefix="/admin")
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run()
